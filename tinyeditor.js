@@ -1070,22 +1070,92 @@
 
   // ── Markdown → HTML ────────────────────────────────────────────────────────
   TinyEditor.prototype._mdToHtml = function (md) {
-    return md
-      .replace(/^### (.+)$/gm,  '<h3>$1</h3>')
-      .replace(/^## (.+)$/gm,   '<h2>$1</h2>')
-      .replace(/^# (.+)$/gm,    '<h1>$1</h1>')
-      .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
-      .replace(/\*(.+?)\*/g,    '<em>$1</em>')
-      .replace(/_(.+?)_/g,      '<em>$1</em>')
-      .replace(/!\[([^\]]*)\]\(([^)]+)\)/g,
-        '<img src="$2" alt="$1" style="max-width:100%;border-radius:4px">')
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g,
-        '<a href="$2" target="_blank">$1</a>')
-      .replace(/^[-*] (.+)$/gm, '<li>$1</li>')
-      .replace(/(<li>[^<]*<\/li>)+/g, s => '<ul>' + s + '</ul>')
-      .replace(/^---$/gm,       '<hr>')
-      .split('\n\n').map(p => p.startsWith('<') ? p : '<p>' + p.replace(/\n/g,'<br>') + '</p>')
-      .join('');
+    var PRE_STYLE = 'background:var(--tfe-sur2,#1e1e1e);border:1px solid var(--tfe-bdr,#2d2d2d);'
+      + 'border-radius:6px;padding:12px;overflow-x:auto;margin:8px 0;white-space:pre;font-family:monospace';
+    var CODE_STYLE = 'font-family:monospace;font-size:13px;color:var(--tfe-acc,#4f8ef7);white-space:pre;display:block';
+    var TH_STYLE = 'border:1px solid var(--tfe-bdr,#2d2d2d);padding:6px 10px;'
+      + 'background:var(--tfe-sur2,#1e1e1e);font-weight:700;text-align:left';
+    var TD_STYLE = 'border:1px solid var(--tfe-bdr,#2d2d2d);padding:6px 10px';
+
+    // Step 1: Extract fenced code blocks first (protect from other replacements)
+    var blocks = [];
+    md = md.replace(/```(\w*)\n([\s\S]*?)```/gm, function(m, lang, code) {
+      var escaped = code.trim()
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      var langLabel = lang ? '<span style="font-size:10px;color:var(--tfe-mut,#888);margin-bottom:6px;display:block">'
+        + lang + '</span>' : '';
+      var html = '<pre style="' + PRE_STYLE + '">' + langLabel
+        + '<code style="' + CODE_STYLE + '">' + escaped + '</code></pre>';
+      blocks.push(html);
+      return '\x00CODE' + (blocks.length-1) + '\x00';
+    });
+
+    // Step 2: Tables
+    md = md.replace(/^(\|.+\|)\n\|[-| :]+\|\n((?:\|.+\|\n?)*)/gm, function(m, header, rows) {
+      var ths = header.split('|').filter(c=>c.trim()).map(c=>'<th style="'+TH_STYLE+'">'+c.trim()+'</th>').join('');
+      var trs = rows.trim().split('\n').map(function(row) {
+        var tds = row.split('|').filter(c=>c.trim()).map(c=>'<td style="'+TD_STYLE+'">'+c.trim()+'</td>').join('');
+        return '<tr>'+tds+'</tr>';
+      }).join('');
+      return '<table style="border-collapse:collapse;width:100%;margin:8px 0;font-size:13px">'
+        +'<thead><tr>'+ths+'</tr></thead><tbody>'+trs+'</tbody></table>';
+    });
+
+    // Step 3: Blockquotes
+    md = md.replace(/^> (.+)$/gm, '<blockquote style="border-left:3px solid var(--tfe-acc,#4f8ef7);'
+      +'padding:4px 12px;margin:4px 0;color:var(--tfe-mut,#888)">$1</blockquote>');
+
+    // Step 4: Headings
+    md = md.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+    md = md.replace(/^## (.+)$/gm,  '<h2>$1</h2>');
+    md = md.replace(/^# (.+)$/gm,   '<h1>$1</h1>');
+
+    // Step 5: Inline code (before bold/italic so `**bold**` inside code isn't processed)
+    md = md.replace(/`([^`\n]+)`/g,
+      '<code style="background:var(--tfe-sur2,#1e1e1e);padding:1px 5px;border-radius:4px;'
+      +'font-family:monospace;font-size:13px;color:var(--tfe-acc,#4f8ef7)">$1</code>');
+
+    // Step 6: Bold / italic
+    md = md.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    md = md.replace(/\*(.+?)\*/g,      '<em>$1</em>');
+    md = md.replace(/_(.+?)_/g,          '<em>$1</em>');
+
+    // Step 7: Images and links
+    md = md.replace(/!\[([^\]]*)\]\(([^)]+)\)/g,
+      '<img src="$2" alt="$1" style="max-width:100%;border-radius:4px;margin:4px 0;display:block">');
+    md = md.replace(/\[([^\]]+)\]\(([^)]+)\)/g,
+      '<a href="$2" target="_blank" style="color:var(--tfe-acc,#4f8ef7)">$1</a>');
+
+    // Step 8: Badge images (shields.io style — already handled by image rule above)
+
+    // Step 9: Lists (unordered and ordered)
+    md = md.replace(/^\d+\. (.+)$/gm, '<li>$1</li>');
+    md = md.replace(/^[-*] (.+)$/gm,    '<li>$1</li>');
+    md = md.replace(/(<li>[\s\S]*?<\/li>\n?)+/g, function(s) {
+      return '<ul style="padding-left:20px;margin:4px 0">' + s + '</ul>';
+    });
+
+    // Step 10: HR
+    md = md.replace(/^---$/gm, '<hr>');
+
+    // Step 11: Paragraphs — split on double newline
+    md = md.split('\n\n').map(function(block) {
+      block = block.trim();
+      if (!block) return '';
+      // Already an HTML block — don't wrap in <p>
+      if (/^<(h[1-6]|ul|ol|li|table|blockquote|pre|hr|div)/.test(block)) return block;
+      if (block.startsWith('\x00CODE')) return block; // placeholder
+      return '<p>' + block.replace(/\n/g, '<br>') + '</p>';
+    }).join('');
+
+    // Step 12: Restore code blocks
+    blocks.forEach(function(html, i) {
+      md = md.replace('\x00CODE' + i + '\x00', html);
+      // Also handle if wrapped in <p> by paragraph step
+      md = md.replace('<p>\x00CODE' + i + '\x00</p>', html);
+    });
+
+    return md;
   };
 
   // ── HTML sanitiser (removes scripts/handlers) ──────────────────────────────
