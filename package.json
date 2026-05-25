@@ -5,6 +5,7 @@
   "main": "tinyeditor.js",
   "files": [
     "tinyeditor.js",
+    "tinyeditor.min.js",
     "README.md",
     "SHORTCUTS.md",
     "CHANGELOG.md"
@@ -34,6 +35,6 @@
   "bugs": {
     "url": "https://github.com/manjur-ai/tinyeditor/issues"
   },
-  "unpkg": "tinyeditor.js",
-  "jsdelivr": "tinyeditor.js"
+  "unpkg": "tinyeditor.min.js",
+  "jsdelivr": "tinyeditor.min.js"
 }

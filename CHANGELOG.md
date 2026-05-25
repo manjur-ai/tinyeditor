@@ -41,3 +41,14 @@
 - **`maxVideoSize`** option (default 10MB)
 - **Configurable `previewMode`**: `'smart'` | `'backend'` | `'domain-only'` | `'none'`
 - Auto-detect URLs always runs; preview button gated by `previewMode`
+
+## v0.1.2 (2026-05-25)
+
+### Added
+- **Rich paste from any website** — copies formatting, headings, lists, links, images, tables
+- **ChatGPT output paste** — code blocks converted to styled `<pre><code>`, bold/italic/lists preserved
+- **DOM-based HTML sanitizer** — safer and more reliable than regex approach
+- **Security** — strips `<script>`, `<iframe>`, event handlers, `javascript:` URLs on paste
+- **Table support** — paste Wikipedia/ChatGPT tables with proper styling
+- **Blockquote** preserved from pasted content
+- Plain text paste still works via browser default

@@ -677,27 +677,180 @@
 
   // ── Paste handler ──────────────────────────────────────────────────────────
   TinyEditor.prototype._onPaste = function (e) {
-    const items = e.clipboardData?.items;
-    if (!items) return;
-    const self = this;
-    for (const item of items) {
-      if (item.type.startsWith('image/')) {
-        e.preventDefault();
-        const file = item.getAsFile();
-        if (file.size > self.opts.maxImageSize) {
-          alert('Image too large. Max: ' + Math.round(self.opts.maxImageSize / 1024) + 'KB');
+    var self = this;
+    var cd = e.clipboardData;
+    if (!cd) return;
+
+    // Priority 1: pasted image file (screenshot / clipboard image)
+    var items = cd.items;
+    if (items) {
+      for (var i = 0; i < items.length; i++) {
+        if (items[i].type.startsWith('image/')) {
+          e.preventDefault();
+          var file = items[i].getAsFile();
+          if (file.size > self.opts.maxImageSize) {
+            alert('Image too large. Max: ' + Math.round(self.opts.maxImageSize / 1024) + 'KB');
+            return;
+          }
+          var reader = new FileReader();
+          reader.onload = function (ev) {
+            document.execCommand('insertHTML', false,
+              '<img src="' + ev.target.result + '" style="max-width:100%;border-radius:4px;margin:4px 0">');
+            self._updateSize();
+          };
+          reader.readAsDataURL(file);
           return;
         }
-        const reader = new FileReader();
-        reader.onload = function (ev) {
-          document.execCommand('insertHTML', false,
-            '<img src="' + ev.target.result + '" style="max-width:100%;border-radius:4px;margin:4px 0">');
-          self._updateSize();
-        };
-        reader.readAsDataURL(file);
-        return;
       }
     }
+
+    // Priority 2: rich HTML paste (websites, ChatGPT, Google Docs, Word)
+    var html = cd.getData('text/html');
+    if (html && html.trim().length > 0) {
+      e.preventDefault();
+      var clean = self._sanitizePastedHtml(html);
+      document.execCommand('insertHTML', false, clean);
+      self._updateSize();
+      clearTimeout(self._urlTimer);
+      self._urlTimer = setTimeout(function() { self._detectUrls(); }, 800);
+      return;
+    }
+    // Priority 3: plain text — allow browser default
+  };
+
+  // ── Sanitize pasted HTML ─────────────────────────────────────────────────
+  TinyEditor.prototype._sanitizePastedHtml = function (raw) {
+    // Use DOM parser for reliable sanitisation — avoids regex ordering issues
+    var parser = new DOMParser();
+    var doc = parser.parseFromString(raw, 'text/html');
+    var body = doc.body;
+
+    // ── Walk DOM and rebuild clean HTML ──────────────────────────────────────
+    function processNode(node) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        return node.textContent;
+      }
+      if (node.nodeType !== Node.ELEMENT_NODE) return '';
+
+      var tag = node.tagName.toLowerCase();
+
+      // Strip completely
+      if (['script','style','iframe','object','embed','link','meta',
+           'noscript','form','input','button','select','textarea'].indexOf(tag) !== -1) {
+        return '';
+      }
+
+      var children = Array.from(node.childNodes).map(processNode).join('');
+
+      // Code blocks (pre > code) — format nicely
+      if (tag === 'pre') {
+        var codeEl = node.querySelector('code');
+        var codeText = codeEl ? codeEl.textContent : node.textContent;
+        // Decode HTML entities
+        var tmp = document.createElement('div');
+        tmp.innerHTML = codeText;
+        codeText = tmp.textContent;
+        var escaped = codeText.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').trim();
+        return '<pre style="background:var(--tfe-sur2,#1e1e1e);border:1px solid var(--tfe-bdr,#2d2d2d);'
+          + 'border-radius:6px;padding:12px;overflow-x:auto;margin:8px 0;white-space:pre">'
+          + '<code style="font-family:monospace;font-size:13px;color:var(--tfe-acc,#4f8ef7)">'
+          + escaped + '</code></pre>';
+      }
+      if (tag === 'code' && node.parentElement && node.parentElement.tagName.toLowerCase() === 'pre') {
+        return ''; // handled above
+      }
+
+      // Headings
+      if (['h1','h2','h3','h4'].indexOf(tag) !== -1) return '<' + tag + '>' + children + '</' + tag + '>';
+      if (['h5','h6'].indexOf(tag) !== -1) return '<p><strong>' + children + '</strong></p>';
+
+      // Inline formatting
+      if (['strong','b'].indexOf(tag) !== -1) return '<strong>' + children + '</strong>';
+      if (['em','i'].indexOf(tag)     !== -1) return '<em>' + children + '</em>';
+      if (tag === 'u')                        return '<u>' + children + '</u>';
+      if (['s','del','strike'].indexOf(tag) !== -1) return '<del>' + children + '</del>';
+      if (tag === 'mark')                     return '<mark>' + children + '</mark>';
+      if (tag === 'sub')                      return '<sub>' + children + '</sub>';
+      if (tag === 'sup')                      return '<sup>' + children + '</sup>';
+
+      // Inline code
+      if (tag === 'code') {
+        return '<code style="background:var(--tfe-sur2,#1e1e1e);padding:1px 5px;border-radius:4px;'
+          + 'font-family:monospace;font-size:13px;color:var(--tfe-acc,#4f8ef7)">' + children + '</code>';
+      }
+
+      // Links
+      if (tag === 'a') {
+        var href = node.getAttribute('href');
+        if (href && !href.startsWith('javascript')) {
+          return '<a href="' + href + '" target="_blank" style="color:var(--tfe-acc,#4f8ef7)">' + children + '</a>';
+        }
+        return children;
+      }
+
+      // Images
+      if (tag === 'img') {
+        var src = node.getAttribute('src');
+        if (src && (src.startsWith('http') || src.startsWith('/') || src.startsWith('data:image'))) {
+          return '<img src="' + src + '" style="max-width:100%;border-radius:4px;margin:4px 0;display:block">';
+        }
+        return '';
+      }
+
+      // Lists
+      if (tag === 'ul') return '<ul>' + children + '</ul>';
+      if (tag === 'ol') return '<ol>' + children + '</ol>';
+      if (tag === 'li') return '<li>' + children + '</li>';
+
+      // Blockquote
+      if (tag === 'blockquote') {
+        return '<blockquote style="border-left:3px solid var(--tfe-acc,#4f8ef7);padding:4px 12px;'
+          + 'margin:4px 0;color:var(--tfe-mut,#888)">' + children + '</blockquote>';
+      }
+
+      // Table
+      if (tag === 'table') {
+        return '<table style="border-collapse:collapse;width:100%;margin:8px 0;font-size:13px">'
+          + children + '</table>';
+      }
+      if (tag === 'thead') return '<thead>' + children + '</thead>';
+      if (tag === 'tbody') return '<tbody>' + children + '</tbody>';
+      if (tag === 'tfoot') return '<tfoot>' + children + '</tfoot>';
+      if (tag === 'tr')    return '<tr>' + children + '</tr>';
+      if (tag === 'th') {
+        return '<th style="border:1px solid var(--tfe-bdr,#2d2d2d);padding:6px 10px;'
+          + 'background:var(--tfe-sur2,#1e1e1e);font-weight:700;text-align:left">' + children + '</th>';
+      }
+      if (tag === 'td') {
+        return '<td style="border:1px solid var(--tfe-bdr,#2d2d2d);padding:6px 10px">'
+          + children + '</td>';
+      }
+
+      // HR
+      if (tag === 'hr') return '<hr>';
+
+      // BR
+      if (tag === 'br') return '<br>';
+
+      // Block containers → paragraph
+      if (['p','div','section','article','main','aside','header','footer','nav'].indexOf(tag) !== -1) {
+        if (!children.trim()) return '';
+        return '<p>' + children + '</p>';
+      }
+
+      // Span and unknown inline → just return children
+      return children;
+    }
+
+    var result = Array.from(body.childNodes).map(processNode).join('');
+
+    // Clean up
+    result = result.replace(/<p>\s*<\/p>/g, '');
+    result = result.replace(/(<br>){3,}/g, '<br><br>');
+    result = result.replace(/<p>(<h[1-4]>)/g, '$1');
+    result = result.replace(/(<\/h[1-4]>)<\/p>/g, '$1');
+
+    return result.trim();
   };
 
   // ── Media Modal ──────────────────────────────────────────────────────────────
