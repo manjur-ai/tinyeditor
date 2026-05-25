@@ -53,11 +53,15 @@
 .tfe-editor h2{font-size:17px;font-weight:700;margin:6px 0 3px;color:var(--tfe-acc,#4f8ef7)}
 .tfe-editor h3{font-size:15px;font-weight:700;margin:4px 0 2px}
 .tfe-editor p{margin:2px 0}
-.tfe-editor ul{padding-left:20px;margin:4px 0}
+.tfe-editor ul{padding-left:20px;margin:4px 0;list-style:disc}
+.tfe-editor ol{padding-left:20px;margin:4px 0;list-style:decimal}
+.tfe-editor li{margin:2px 0;display:list-item}
 .tfe-editor a{color:var(--tfe-acc,#4f8ef7);text-decoration:underline}
 .tfe-editor img{max-width:100%;border-radius:4px;margin:4px 0;display:block}
 .tfe-editor hr{border:none;border-top:1px solid var(--tfe-bdr,#2d2d2d);margin:8px 0}
 .tfe-editor code{background:var(--tfe-sur2,#1e1e1e);padding:1px 5px;border-radius:4px;font-family:monospace;font-size:13px;color:var(--tfe-acc,#4f8ef7)}
+.tfe-editor pre{background:var(--tfe-sur2,#1e1e1e);border:1px solid var(--tfe-bdr,#2d2d2d);border-radius:6px;padding:12px;overflow-x:auto;margin:8px 0;white-space:pre;font-family:monospace}
+.tfe-editor pre code{background:none;padding:0;border-radius:0;white-space:pre}
 .tfe-editor blockquote{border-left:3px solid var(--tfe-acc,#4f8ef7);padding:4px 12px;margin:4px 0;color:var(--tfe-mut,#888)}
 .tfe-editor video{max-width:100%;border-radius:6px;margin:4px 0;display:block;background:#000}
 .tfe-editor iframe{max-width:100%;border-radius:6px;margin:4px 0;display:block;border:none}
@@ -742,22 +746,32 @@
 
       var children = Array.from(node.childNodes).map(processNode).join('');
 
-      // Code blocks (pre > code) — format nicely
+      // Code blocks (pre > code) — preserve ALL newlines and indentation
       if (tag === 'pre') {
-        var codeEl = node.querySelector('code');
-        var codeText = codeEl ? codeEl.textContent : node.textContent;
-        // Decode HTML entities
-        var tmp = document.createElement('div');
-        tmp.innerHTML = codeText;
-        codeText = tmp.textContent;
-        var escaped = codeText.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').trim();
+        // Walk text nodes inside pre - preserving newlines from br tags
+        function extractPreText(n) {
+          if (n.nodeType === 3) return n.textContent; // text node
+          var t = n.tagName ? n.tagName.toLowerCase() : '';
+          if (t === 'br') return '\n';
+          // span/code children — recurse
+          return Array.from(n.childNodes).map(extractPreText).join('');
+        }
+        var codeEl = node.querySelector('code') || node;
+        var raw = extractPreText(codeEl);
+        // Trim only trailing whitespace per line, keep structure
+        var lines = raw.split('\n');
+        // Remove leading/trailing blank lines only
+        while (lines.length && !lines[0].trim()) lines.shift();
+        while (lines.length && !lines[lines.length-1].trim()) lines.pop();
+        var escaped = lines.join('\n')
+          .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         return '<pre style="background:var(--tfe-sur2,#1e1e1e);border:1px solid var(--tfe-bdr,#2d2d2d);'
-          + 'border-radius:6px;padding:12px;overflow-x:auto;margin:8px 0;white-space:pre">'
-          + '<code style="font-family:monospace;font-size:13px;color:var(--tfe-acc,#4f8ef7)">'
+          + 'border-radius:6px;padding:12px;overflow-x:auto;margin:8px 0;white-space:pre;font-family:monospace;font-size:13px">'
+          + '<code style="font-family:monospace;font-size:13px;color:var(--tfe-acc,#4f8ef7);white-space:pre;display:block">'
           + escaped + '</code></pre>';
       }
       if (tag === 'code' && node.parentElement && node.parentElement.tagName.toLowerCase() === 'pre') {
-        return ''; // handled above
+        return ''; // handled above in pre block
       }
 
       // Headings
@@ -798,9 +812,13 @@
       }
 
       // Lists
-      if (tag === 'ul') return '<ul>' + children + '</ul>';
-      if (tag === 'ol') return '<ol>' + children + '</ol>';
-      if (tag === 'li') return '<li>' + children + '</li>';
+      if (tag === 'ul') return '<ul style="padding-left:20px;margin:4px 0">' + children + '</ul>';
+      if (tag === 'ol') return '<ol style="padding-left:20px;margin:4px 0">' + children + '</ol>';
+      if (tag === 'li') {
+        // ChatGPT wraps li content in <p> — strip those wrappers
+        var liContent = children.replace(/^<p>([\s\S]*?)<\/p>$/,'$1').replace(/<p>([\s\S]*?)<\/p>/g,'$1');
+        return '<li>' + liContent + '</li>';
+      }
 
       // Blockquote
       if (tag === 'blockquote') {
