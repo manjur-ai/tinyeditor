@@ -91,6 +91,15 @@
 .tfe-block-wrap:hover .tfe-del-btn{display:flex}
 .tfe-block-wrap .tfe-del-btn:hover{background:rgba(226,75,74,.35)}
 .tfe-editor{padding-left:26px !important}
+.tfe-line-del{position:absolute;left:-22px;top:50%;transform:translateY(-50%);width:16px;height:16px;background:rgba(226,75,74,.1);border:1px solid rgba(226,75,74,.3);border-radius:50%;color:#e24b4a;font-size:10px;font-weight:900;cursor:pointer;display:none;align-items:center;justify-content:center;line-height:1;z-index:9;transition:background .15s}
+.tfe-editor p:hover>.tfe-line-del,.tfe-editor h1:hover>.tfe-line-del,.tfe-editor h2:hover>.tfe-line-del,.tfe-editor h3:hover>.tfe-line-del,.tfe-editor li:hover>.tfe-line-del,.tfe-editor blockquote:hover>.tfe-line-del{display:flex}
+.tfe-line-del:hover{background:rgba(226,75,74,.35)}
+.tfe-editor p,.tfe-editor h1,.tfe-editor h2,.tfe-editor h3,.tfe-editor h4,.tfe-editor li,.tfe-editor blockquote{position:relative}
+#tfe-sel-del{position:fixed;z-index:99999;background:#e24b4a;border:none;border-radius:6px;color:#fff;font-size:12px;font-weight:700;padding:4px 10px;cursor:pointer;display:none;box-shadow:0 2px 8px rgba(0,0,0,.4);pointer-events:auto}
+#tfe-sel-del:hover{background:#c0392b}
+.tfe-md-group{position:relative;border-left:2px solid rgba(79,142,247,.2);padding-left:4px;margin:4px 0}
+.tfe-md-group-del{position:absolute;top:4px;left:-22px;width:18px;height:18px;background:rgba(226,75,74,.15);border:1px solid rgba(226,75,74,.4);border-radius:50%;color:#e24b4a;font-size:11px;font-weight:900;cursor:pointer;display:none;align-items:center;justify-content:center;line-height:1;z-index:10;transition:background .15s}
+.tfe-md-group:hover>.tfe-md-group-del{display:flex}
 .tfe-save-bar{display:flex;justify-content:flex-end;padding:8px 0 0}
 .tfe-save-btn{background:var(--tfe-acc,#4f8ef7);border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:700;padding:10px 24px;cursor:pointer}
 .tfe-save-btn:active{opacity:.85}
@@ -229,6 +238,8 @@
     target.innerHTML = '';
     target.appendChild(wrap);
     this._updateSize();
+    this._initSelectionDelete();
+    this._addLineDelButtons();
   };
 
   // ── Toolbar actions ────────────────────────────────────────────────────────
@@ -507,6 +518,94 @@
       + '<button class="tfe-del-btn" onclick="this.parentElement.remove()" title="Delete block">&#10005;</button>'
       + innerHtml
       + '</div>';
+  };
+
+  // ── Floating selection delete button ─────────────────────────────────────────
+  TinyEditor.prototype._initSelectionDelete = function () {
+    var self = this;
+    var btn = document.createElement('button');
+    btn.id = 'tfe-sel-del';
+    btn.textContent = '✕ Delete selection';
+    btn.addEventListener('mousedown', function(e) {
+      e.preventDefault();
+      var sel = window.getSelection();
+      if (sel && !sel.isCollapsed && self._ed.contains(sel.anchorNode)) {
+        sel.deleteFromDocument();
+        self._updateSize();
+      }
+      btn.style.display = 'none';
+    });
+    document.body.appendChild(btn);
+    this._selDelBtn = btn;
+
+    // Show/hide on selection change
+    document.addEventListener('selectionchange', function() {
+      var sel = window.getSelection();
+      if (!sel || sel.isCollapsed || !self._ed.contains(sel.anchorNode)) {
+        btn.style.display = 'none';
+        return;
+      }
+      // Multi-line check: selection spans >1 block element
+      var range = sel.getRangeAt(0);
+      var start = range.startContainer;
+      var end   = range.endContainer;
+      var startBlock = (start.nodeType===3 ? start.parentElement : start).closest('p,h1,h2,h3,li,blockquote,pre,div') || start;
+      var endBlock   = (end.nodeType===3   ? end.parentElement   : end).closest('p,h1,h2,h3,li,blockquote,pre,div') || end;
+      if (startBlock === endBlock) { btn.style.display='none'; return; }
+      // Position above the selection
+      var rect = range.getBoundingClientRect();
+      btn.style.display = 'block';
+      btn.style.top  = Math.max(0, rect.top + window.scrollY - 32) + 'px';
+      btn.style.left = (rect.left + rect.width/2 - btn.offsetWidth/2) + 'px';
+    });
+  };
+
+  // ── Line-level delete buttons (add to every editable block) ───────────────
+  TinyEditor.prototype._addLineDelButtons = function () {
+    var self = this;
+    var SELECTORS = 'p,h1,h2,h3,h4,li,blockquote';
+    // Use MutationObserver to add del button to new nodes
+    var observer = new MutationObserver(function() { self._syncLineDelButtons(); });
+    observer.observe(this._ed, {childList:true, subtree:false});
+    this._syncLineDelButtons();
+  };
+
+  TinyEditor.prototype._syncLineDelButtons = function () {
+    var self = this;
+    var blocks = this._ed.querySelectorAll('p,h1,h2,h3,h4,li,blockquote');
+    blocks.forEach(function(block) {
+      // Skip blocks already inside tfe-block-wrap (they have their own del button)
+      if (block.closest('.tfe-block-wrap,.tfe-md-group')) return;
+      if (block.querySelector(':scope > .tfe-line-del')) return; // already added
+      var btn = document.createElement('button');
+      btn.className = 'tfe-line-del';
+      btn.title = 'Delete line';
+      btn.textContent = '✕';
+      btn.contentEditable = 'false';
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        // Re-find the closest block in case DOM changed
+        var target = btn.parentElement;
+        if(target && target !== self._ed) {
+          target.remove();
+          self._updateSize();
+        }
+      });
+      btn.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+      });
+      block.insertBefore(btn, block.firstChild);
+    });
+  };
+
+  // ── Wrap MD import in deletable group ─────────────────────────────────────
+  TinyEditor.prototype._wrapMdGroup = function (html) {
+    return '<div class="tfe-md-group" contenteditable="true">'
+      + '<button class="tfe-md-group-del" contenteditable="false" '
+      + 'onclick="this.parentElement.remove()" title="Delete entire import">&#10005;</button>'
+      + html + '</div>';
   };
 
   // ── Auto URL detection ─────────────────────────────────────────────────────
@@ -1060,14 +1159,18 @@
       reader.readAsDataURL(file);
     } else if (type === 'md') {
       reader.onload = function (ev) {
-        self._insertHtmlAtCursor(self._mdToHtml(ev.target.result));
+        var mdHtml = self._mdToHtml(ev.target.result);
+        self._insertHtmlAtCursor(self._wrapMdGroup(mdHtml));
         self._updateSize();
+        setTimeout(function() { self._syncLineDelButtons(); }, 100);
       };
       reader.readAsText(file);
     } else if (type === 'html') {
       reader.onload = function (ev) {
-        self._insertHtmlAtCursor(self._sanitizeHtml(ev.target.result));
+        var cleanHtml = self._sanitizeHtml(ev.target.result);
+        self._insertHtmlAtCursor(self._wrapMdGroup(cleanHtml));
         self._updateSize();
+        setTimeout(function() { self._syncLineDelButtons(); }, 100);
       };
       reader.readAsText(file);
     }
@@ -1076,6 +1179,7 @@
 
   // ── Insert HTML at cursor ──────────────────────────────────────────────────
   TinyEditor.prototype._insertHtmlAtCursor = function (html) {
+    var self = this;
     this._ed.focus();
     const sel = window.getSelection();
     if (sel && sel.rangeCount) {
@@ -1094,6 +1198,7 @@
       }
     }
     this._ed.innerHTML += html;
+    setTimeout(function(){ self._syncLineDelButtons(); }, 50);
   };
 
   // ── Markdown → HTML ────────────────────────────────────────────────────────
