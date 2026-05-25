@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TinyEditor Demo</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0f0f0f;
+    color: #e0e0e0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    padding: 24px 16px;
+    min-height: 100vh;
+  }
+  h1 { font-size: 22px; margin-bottom: 4px; color: #4f8ef7; }
+  p.sub { font-size: 13px; color: #888; margin-bottom: 20px; }
+  #demo { max-width: 600px; margin: 0 auto; }
+  #output-box {
+    margin-top: 20px;
+    background: #1e1e1e;
+    border: 1px solid #2d2d2d;
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 12px;
+    color: #888;
+    max-height: 200px;
+    overflow-y: auto;
+    word-break: break-all;
+  }
+  h3 { margin: 16px 0 6px; font-size: 14px; color: #888; font-weight: 600; }
+  .badge {
+    display:inline-block;background:#4f8ef7;color:#fff;
+    font-size:11px;padding:2px 8px;border-radius:99px;margin-left:8px;
+    vertical-align:middle;
+  }
+</style>
+</head>
+<body>
+<div id="demo">
+  <h1>⚡ TinyEditor <span class="badge">v0.1.0</span></h1>
+  <p class="sub">Zero-dependency · Mobile-first · 8KB · No build step</p>
+
+  <!-- Editor mounts here -->
+  <div id="my-editor"></div>
+
+  <h3>💾 Saved HTML output</h3>
+  <div id="output-box">Click "Save" to see HTML output here...</div>
+</div>
+
+<script src="tinyeditor.js"></script>
+<script>
+  const editor = new TinyEditor({
+    target: '#my-editor',
+
+    // Initial content
+    value: '<p>Welcome to <strong>TinyEditor</strong>!</p><p>Try the toolbar above ☝️</p><p>Paste a URL and click 👁 to see a preview card.</p>',
+
+    // Link preview API — replace with your own backend
+    // linkPreviewUrl: '/api/link-preview',
+    linkPreviewUrl: null,  // set to null to disable preview buttons
+
+    // Max sizes
+    maxSize: 1048576,      // 1MB
+    maxImageSize: 524288,  // 500KB
+
+    // Dark mode: 'auto' | 'dark' | 'light'
+    darkMode: 'dark',
+
+    // Called on every keystroke
+    onChange: function(html) {
+      // console.log('changed:', html.length, 'chars');
+    },
+
+    // Called when Save button is clicked
+    onSave: function(html) {
+      document.getElementById('output-box').textContent = html;
+      // In your app: fetch('/api/save-note', { method:'POST', body: JSON.stringify({html}) })
+    },
+
+    showSaveButton: true,
+    showToolbar: true,
+    toolbar: ['bold','italic','heading','link','image','importMd','importHtml','indent','outdent'],
+    placeholder: 'Start writing your note...',
+  });
+
+  // API example:
+  // editor.getValue()        → returns current HTML
+  // editor.setValue('<p>x</p>') → sets content
+  // editor.focus()           → focuses the editor
+</script>
+</body>
+</html>

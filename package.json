@@ -1,0 +1,39 @@
+{
+  "name": "@manjur-ai/tinyeditor",
+  "version": "0.1.0",
+  "description": "Zero-dependency, mobile-first rich text editor with URL preview, image upload, Markdown shortcuts, and media embeds. ~45KB. No build step.",
+  "main": "tinyeditor.js",
+  "files": [
+    "tinyeditor.js",
+    "README.md",
+    "SHORTCUTS.md",
+    "CHANGELOG.md"
+  ],
+  "keywords": [
+    "rich-text-editor",
+    "contenteditable",
+    "zero-dependency",
+    "mobile-first",
+    "markdown",
+    "url-preview",
+    "dark-mode",
+    "wysiwyg",
+    "no-build",
+    "media-embed",
+    "youtube-embed",
+    "tinyeditor",
+    "tiny-editor"
+  ],
+  "author": "Manjur <friendmanjur@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/manjur-ai/tinyeditor"
+  },
+  "homepage": "https://github.com/manjur-ai/tinyeditor",
+  "bugs": {
+    "url": "https://github.com/manjur-ai/tinyeditor/issues"
+  },
+  "unpkg": "tinyeditor.js",
+  "jsdelivr": "tinyeditor.js"
+}
