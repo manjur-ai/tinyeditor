@@ -86,6 +86,11 @@
 .tfe-preview-domain{font-size:11px;color:var(--tfe-acc,#4f8ef7);margin-top:4px}
 .tfe-url-wrap{display:inline-flex;align-items:center;gap:4px}
 .tfe-preview-btn{background:var(--tfe-sur2,#1e1e1e);border:1px solid var(--tfe-bdr,#2d2d2d);border-radius:4px;font-size:11px;cursor:pointer;padding:1px 5px;color:var(--tfe-mut,#888);flex-shrink:0}
+.tfe-block-wrap{position:relative;margin:4px 0}
+.tfe-block-wrap .tfe-del-btn{position:absolute;top:4px;left:-22px;width:18px;height:18px;background:rgba(226,75,74,.15);border:1px solid rgba(226,75,74,.4);border-radius:50%;color:#e24b4a;font-size:11px;font-weight:900;cursor:pointer;display:none;align-items:center;justify-content:center;line-height:1;z-index:10;transition:background .15s}
+.tfe-block-wrap:hover .tfe-del-btn{display:flex}
+.tfe-block-wrap .tfe-del-btn:hover{background:rgba(226,75,74,.35)}
+.tfe-editor{padding-left:26px !important}
 .tfe-save-bar{display:flex;justify-content:flex-end;padding:8px 0 0}
 .tfe-save-btn{background:var(--tfe-acc,#4f8ef7);border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:700;padding:10px 24px;cursor:pointer}
 .tfe-save-btn:active{opacity:.85}
@@ -495,6 +500,15 @@
     this._updateSize();
   };
 
+  // ── Deletable block wrapper ──────────────────────────────────────────────────
+  // Wraps any inserted block with a red ✕ delete button on hover
+  TinyEditor.prototype._wrapBlock = function (innerHtml) {
+    return '<div class="tfe-block-wrap" contenteditable="false">'
+      + '<button class="tfe-del-btn" onclick="this.parentElement.remove()" title="Delete block">&#10005;</button>'
+      + innerHtml
+      + '</div>';
+  };
+
   // ── Auto URL detection ─────────────────────────────────────────────────────
   TinyEditor.prototype._detectUrls = function () {
     const ed = this._ed;
@@ -674,8 +688,19 @@
       '<div class="tfe-preview-domain">' + _esc(data.domain||'') + ' ↗</div>';
     card.appendChild(body);
     card.addEventListener('click', function() { window.open(url, '_blank'); });
+    // Wrap with deletable block
+    var wrap = document.createElement('div');
+    wrap.className = 'tfe-block-wrap';
+    wrap.contentEditable = 'false';
+    var delBtn = document.createElement('button');
+    delBtn.className = 'tfe-del-btn';
+    delBtn.title = 'Delete block';
+    delBtn.innerHTML = '&#10005;';
+    delBtn.onclick = function() { wrap.remove(); self._updateSize(); };
+    wrap.appendChild(delBtn);
+    wrap.appendChild(card);
     var span = btn.closest('.tfe-url-wrap') || btn.parentElement;
-    span.replaceWith(card);
+    span.replaceWith(wrap);
     self._updateSize();
   };
 
@@ -939,8 +964,11 @@
 
   TinyEditor.prototype._insertMediaByUrl = function (url) {
     this._ed.focus();
-    // Insert media + a paragraph after so cursor stays editable
     var html = this._buildMediaHtml(url);
+    // Wrap embeds, images and videos with delete handle
+    if (html.includes('<iframe') || html.includes('<video') || html.includes('<img')) {
+      html = this._wrapBlock(html);
+    }
     document.execCommand('insertHTML', false, html + '<p><br></p>');
     this._updateSize();
   };
@@ -1015,18 +1043,18 @@
     if (type === 'img') {
       reader.onload = function (ev) {
         self._ed.focus();
-        document.execCommand('insertHTML', false,
-          '<img src="' + ev.target.result + '" style="max-width:100%;border-radius:4px;margin:4px 0">');
+        var imgHtml = self._wrapBlock('<img src="' + ev.target.result + '" style="max-width:100%;border-radius:4px;display:block">');
+        document.execCommand('insertHTML', false, imgHtml);
         self._updateSize();
       };
       reader.readAsDataURL(file);
     } else if (type === 'vid') {
       reader.onload = function (ev) {
         self._ed.focus();
-        document.execCommand('insertHTML', false,
-          '<video controls contenteditable="false" style="max-width:100%;border-radius:6px;margin:4px 0;display:block;background:#000" preload="metadata">'
+        var vidHtml = self._wrapBlock('<video controls style="max-width:100%;border-radius:6px;display:block;background:#000" preload="metadata">'
           + '<source src="' + ev.target.result + '" type="' + file.type + '">'
           + 'Your browser does not support video.</video>');
+        document.execCommand('insertHTML', false, vidHtml);
         self._updateSize();
       };
       reader.readAsDataURL(file);
@@ -1084,8 +1112,11 @@
         .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
       var langLabel = lang ? '<span style="font-size:10px;color:var(--tfe-mut,#888);margin-bottom:6px;display:block">'
         + lang + '</span>' : '';
-      var html = '<pre style="' + PRE_STYLE + '">' + langLabel
+      var blockHtml = '<pre style="' + PRE_STYLE + '">' + langLabel
         + '<code style="' + CODE_STYLE + '">' + escaped + '</code></pre>';
+      var html = '<div class="tfe-block-wrap" contenteditable="false">'
+        + '<button class="tfe-del-btn" onclick="this.parentElement.remove()" title="Delete block">&#10005;</button>'
+        + blockHtml + '</div>';
       blocks.push(html);
       return '\x00CODE' + (blocks.length-1) + '\x00';
     });
@@ -1097,8 +1128,10 @@
         var tds = row.split('|').filter(c=>c.trim()).map(c=>'<td style="'+TD_STYLE+'">'+c.trim()+'</td>').join('');
         return '<tr>'+tds+'</tr>';
       }).join('');
-      return '<table style="border-collapse:collapse;width:100%;margin:8px 0;font-size:13px">'
-        +'<thead><tr>'+ths+'</tr></thead><tbody>'+trs+'</tbody></table>';
+      return '<div class="tfe-block-wrap" contenteditable="false">'
+        + '<button class="tfe-del-btn" onclick="this.parentElement.remove()" title="Delete block">&#10005;</button>'
+        + '<table style="border-collapse:collapse;width:100%;margin:8px 0;font-size:13px">'
+        + '<thead><tr>'+ths+'</tr></thead><tbody>'+trs+'</tbody></table></div>';
     });
 
     // Step 3: Blockquotes
@@ -1121,8 +1154,12 @@
     md = md.replace(/_(.+?)_/g,          '<em>$1</em>');
 
     // Step 7: Images and links
-    md = md.replace(/!\[([^\]]*)\]\(([^)]+)\)/g,
-      '<img src="$2" alt="$1" style="max-width:100%;border-radius:4px;margin:4px 0;display:block">');
+    md = md.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, function(m,alt,src) {
+      return '<div class="tfe-block-wrap" contenteditable="false">'
+        + '<button class="tfe-del-btn" onclick="this.parentElement.remove()" title="Delete">&#10005;</button>'
+        + '<img src="'+src+'" alt="'+alt+'" style="max-width:100%;border-radius:4px;display:block">'
+        + '</div>';
+    });
     md = md.replace(/\[([^\]]+)\]\(([^)]+)\)/g,
       '<a href="$2" target="_blank" style="color:var(--tfe-acc,#4f8ef7)">$1</a>');
 
