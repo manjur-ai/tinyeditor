@@ -1,6 +1,6 @@
 {
   "name": "@manjur-ai/tinyeditor",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Zero-dependency, mobile-first rich text editor with URL preview, image upload, Markdown shortcuts, and media embeds. ~45KB. No build step.",
   "main": "tinyeditor.js",
   "files": [
