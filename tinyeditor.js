@@ -43,14 +43,27 @@
     onSave:         null,              // fn(html) — called when Save is clicked
     showSaveButton: true,
     showToolbar:    true,
-    toolbar: ['bold','italic','heading','link','image','importMd','importHtml','indent','outdent','markStart','deleteSelection'],
+    toolbar: ['bold','italic','heading','link','image','importDoc','indent','outdent','markStart','deleteSelection','rawHtml'],
   };
 
   // ── CSS injected once ──────────────────────────────────────────────────────
   const CSS = `
+.tfe-pdf-wrap{position:relative;width:100%;border-radius:8px;overflow:hidden;margin:8px 0;border:1px solid var(--tfe-bdr,#2d2d2d)}
+.tfe-pdf-canvas-wrap{width:100%;overflow-y:auto;max-height:68vh;display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px;background:#525659}
+.tfe-pdf-canvas{display:block;max-width:100%;box-shadow:0 2px 8px rgba(0,0,0,.4);background:#fff}
+.tfe-pdf-bar{display:flex;align-items:center;justify-content:space-between;padding:7px 12px;background:var(--tfe-sur2,#1e1e1e);font-size:12px;color:var(--tfe-txt,#e0e0e0);gap:8px;border-top:1px solid var(--tfe-bdr,#2d2d2d)}
+.tfe-pdf-bar span{flex:1;text-align:center;color:var(--tfe-mut,#888);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tfe-pdf-btn{background:none;border:1px solid var(--tfe-bdr,#2d2d2d);border-radius:6px;color:var(--tfe-txt,#e0e0e0);padding:3px 10px;cursor:pointer;font-size:12px;flex-shrink:0}
+.tfe-pdf-btn:hover{background:var(--tfe-acc,#4f8ef7);border-color:var(--tfe-acc,#4f8ef7);color:#fff}
+.tfe-pdf-btn:disabled{opacity:.35;pointer-events:none}
+.tfe-pdf-loading{text-align:center;padding:24px 16px;color:var(--tfe-mut,#888);font-size:13px}
+.tfe-pdf-error{text-align:center;padding:16px;color:#e24b4a;font-size:13px}
 .tfe-wrap{display:flex;flex-direction:column;gap:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;box-sizing:border-box}
 .tfe-wrap *{box-sizing:border-box}
-.tfe-toolbar{display:flex;gap:4px;padding:6px 0 8px;border-bottom:1px solid var(--tfe-bdr,#2d2d2d);flex-wrap:wrap}
+.tfe-toolbar{display:flex;gap:4px;padding:6px 8px 8px;border-bottom:1px solid var(--tfe-bdr,#2d2d2d);flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.tfe-toolbar::-webkit-scrollbar{display:none}
+.tfe-toolbar-bottom{border-top:1px solid var(--tfe-bdr,#2d2d2d);border-bottom:none;padding:6px 8px env(safe-area-inset-bottom,0);position:fixed;bottom:0;left:0;right:0;z-index:10000;background:var(--tfe-sur,#141414);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);transform:translateY(100%);transition:transform .2s ease;box-shadow:0 -1px 12px rgba(0,0,0,.3)}
+.tfe-toolbar-bottom.tfe-tb-visible{transform:translateY(0)}
 .tfe-btn{background:var(--tfe-sur2,#1e1e1e);border:1px solid var(--tfe-bdr,#2d2d2d);border-radius:6px;color:var(--tfe-txt,#e0e0e0);font-size:13px;font-weight:600;padding:4px 9px;cursor:pointer;min-width:30px;transition:background .15s;line-height:1.4}
 .tfe-btn:hover{background:var(--tfe-acc,#4f8ef7);color:#fff;border-color:var(--tfe-acc,#4f8ef7)}
 .tfe-btn:active{transform:scale(.95)}
@@ -74,6 +87,23 @@
 .tfe-editor video{max-width:100%;border-radius:6px;margin:4px 0;display:block;background:#000}
 .tfe-editor iframe{max-width:100%;border-radius:6px;margin:4px 0;display:block;border:none}
 .tfe-media-modal{position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center}
+.tfe-doc-modal{position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:16px}
+.tfe-doc-box{background:var(--tfe-sur,#141414);border:1px solid var(--tfe-bdr,#2d2d2d);border-radius:14px;padding:20px;width:94vw;max-width:420px;display:flex;flex-direction:column;gap:10px}
+.tfe-doc-title{font-size:16px;font-weight:700;color:var(--tfe-txt,#e0e0e0);display:flex;justify-content:space-between;align-items:center}
+.tfe-doc-card{background:var(--tfe-sur2,#1e1e1e);border:1px solid var(--tfe-bdr,#2d2d2d);border-radius:10px;padding:14px 16px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:14px}
+.tfe-doc-card:hover{border-color:var(--tfe-acc,#4f8ef7);background:rgba(79,142,247,.07)}
+.tfe-doc-card-icon{font-size:28px;flex-shrink:0;width:36px;text-align:center}
+.tfe-doc-card-info{flex:1}
+.tfe-doc-card-name{font-size:14px;font-weight:700;color:var(--tfe-txt,#e0e0e0);margin-bottom:3px}
+.tfe-doc-card-desc{font-size:12px;color:var(--tfe-mut,#888);line-height:1.4}
+.tfe-doc-card-badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;flex-shrink:0}
+.tfe-doc-card--md{border-left:3px solid #4f8ef7}
+.tfe-doc-card--md .tfe-doc-card-badge{background:rgba(79,142,247,.15);color:#4f8ef7}
+.tfe-doc-card--html{border-left:3px solid #4caf50}
+.tfe-doc-card--html .tfe-doc-card-badge{background:rgba(76,175,80,.15);color:#4caf50}
+.tfe-doc-card--pdf{border-left:3px solid #f7c94f}
+.tfe-doc-card--pdf .tfe-doc-card-badge{background:rgba(247,201,79,.15);color:#f7c94f}
+.tfe-doc-card--pdf:hover{border-color:#f7c94f;background:rgba(247,201,79,.07)}
 .tfe-media-box{background:var(--tfe-sur,#141414);border:1px solid var(--tfe-bdr,#2d2d2d);border-radius:14px;padding:16px;width:94vw;max-width:600px;display:flex;flex-direction:column;gap:10px}
 .tfe-media-title{font-size:15px;font-weight:700;color:var(--tfe-txt,#e0e0e0);margin-bottom:14px;display:flex;justify-content:space-between;align-items:center}
 .tfe-media-section{margin-bottom:0}
@@ -156,9 +186,12 @@
 .tfe-btn.tfe-btn--active{background:var(--tfe-acc,#4f8ef7);color:#fff;border-color:var(--tfe-acc,#4f8ef7)}
 .tfe-btn.tfe-btn--danger{background:rgba(226,75,74,.15);color:#e24b4a;border-color:rgba(226,75,74,.5)}
 .tfe-btn.tfe-btn--danger:hover{background:#e24b4a;color:#fff}
-.tfe-start-marker{display:inline-block;width:2px;height:1em;background:var(--tfe-acc,#4f8ef7);vertical-align:middle;border-radius:1px;margin:0 1px;animation:tfe-blink 1s infinite}
-@keyframes tfe-blink{0%,100%{opacity:1}50%{opacity:.3}}
-.tfe-mark-line{border-left:2px solid var(--tfe-acc,#4f8ef7);padding-left:4px;background:rgba(79,142,247,.05)}
+.tfe-start-marker{display:inline-block;width:2px;height:1.1em;background:var(--tfe-acc,#4f8ef7);vertical-align:text-bottom;border-radius:1px;margin:0 1px;position:relative;animation:tfe-blink 1s step-end infinite}
+.tfe-start-marker::before{content:"📍";position:absolute;top:-22px;left:50%;transform:translateX(-50%);font-size:13px;pointer-events:none;line-height:1;animation:none;opacity:1}
+.tfe-start-marker::after{content:"";position:absolute;top:-6px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid var(--tfe-acc,#4f8ef7);pointer-events:none}
+@keyframes tfe-blink{0%,100%{opacity:1}50%{opacity:0}}
+.tfe-mark-line{background:rgba(79,142,247,.06)}
+.tfe-editor ::selection{background:rgba(79,142,247,.35);color:inherit}
 .tfe-md-group{position:relative;border-left:2px solid rgba(79,142,247,.2);padding-left:4px;margin:4px 0}
 .tfe-md-group-del{position:absolute;top:4px;left:-22px;width:18px;height:18px;background:rgba(226,75,74,.15);border:1px solid rgba(226,75,74,.4);border-radius:50%;color:#e24b4a;font-size:11px;font-weight:900;cursor:pointer;display:none;align-items:center;justify-content:center;line-height:1;z-index:10;transition:background .15s}
 .tfe-md-group:hover>.tfe-md-group-del{display:flex}
@@ -228,6 +261,7 @@
         image:      '📎',
         importMd:   '📄',
         importHtml: '🌐',
+        importDoc:  '📄',
         indent:     '→',
         outdent:    '←',
         markStart:  '📍',
@@ -237,7 +271,7 @@
       const TITLES = {
         bold:'Bold',italic:'Italic',heading:'Heading',
         link:'Insert link',image:'Insert media (image/video/embed)',
-        importMd:'Import .md file',importHtml:'Import HTML file (no JS)',
+        importMd:'Import .md file',importHtml:'Import HTML file (no JS)',importDoc:'Import document (.md / .html)',
         indent:'Indent (Tab)',outdent:'Outdent (Shift+Tab)',
         markStart:'Mark selection start',
         deleteSelection:'Delete selection / marked range',
@@ -249,6 +283,7 @@
         btn.type = 'button';
         btn.innerHTML = LABELS[name] || name;
         btn.title = TITLES[name] || name;
+        btn.dataset.action = name;
         btn.addEventListener('click', () => this._tbAction(name));
         tb.appendChild(btn);
       });
@@ -280,11 +315,11 @@
     this._ed = ed;
 
     // ── Hidden file inputs ───────────────────────────────────────────────────
-    ['img','vid','md','html'].forEach(type => {
+    ['img','vid','md','html','pdf'].forEach(type => {
       const inp = document.createElement('input');
       inp.type = 'file';
       inp.style.display = 'none';
-      inp.accept = type === 'img' ? 'image/*' : type === 'vid' ? 'video/*' : type === 'md' ? '.md,.txt' : '.html,.htm';
+      inp.accept = type === 'img' ? 'image/*' : type === 'vid' ? 'video/*' : type === 'md' ? '.md,.txt' : type === 'html' ? '.html,.htm' : '.pdf';
       inp.addEventListener('change', (e) => this._fileChosen(type, e));
       wrap.appendChild(inp);
       this['_file_' + type] = inp;  // _file_img, _file_vid, _file_md, _file_html
@@ -308,10 +343,12 @@
     this._wrap = wrap;
     this._startMarker = null;
     this._startMarkerBlock = null;
+    this._markBtn = null; // lazily found in _updateMarkerBtn
     this._updateSize();
     this._initSelectionDelete();
     this._addLineDelButtons();
     this._initSelectionWatcher();
+    this._initMobileToolbar();
   };
 
   // ── Toolbar actions ────────────────────────────────────────────────────────
@@ -336,6 +373,7 @@
       case 'image':      this._openMediaModal(); break;
       case 'importMd':   this._file_md.click(); break;
       case 'importHtml': this._file_html.click(); break;
+      case 'importDoc':  this._openImportDocModal(); break;
       case 'indent':         this._indent(true); break;
       case 'outdent':        this._indent(false); break;
       case 'markStart':      this._markSelectionStart(); break;
@@ -589,7 +627,8 @@
   // ── Mark selection start + delete selection ─────────────────────────────────
   TinyEditor.prototype._markSelectionStart = function () {
     var self = this;
-    // If already marked — clear it
+
+    // If already marked — clear and reset
     if (this._startMarker) {
       this._clearStartMarker();
       return;
@@ -599,52 +638,100 @@
     if (!sel || !sel.rangeCount) return;
 
     var range = sel.getRangeAt(0).cloneRange();
-    range.collapse(true); // collapse to start
+    range.collapse(true);
 
-    // If cursor is at start of block containing a line-del button, move past it
+    // Skip line-del button node if cursor is at block start
     var sc = range.startContainer;
-    if (sc.nodeType === 1 && sc.firstChild && sc.firstChild.classList && sc.firstChild.classList.contains('tfe-line-del')) {
-      range.setStart(sc, 1); // skip the button node
+    if (sc.nodeType === 1 && sc.firstChild && sc.firstChild.classList &&
+        sc.firstChild.classList.contains('tfe-line-del')) {
+      range.setStart(sc, 1);
     }
 
-    // Insert a visible marker span at cursor
+    // Insert blinking marker at cursor position
     var marker = document.createElement('span');
     marker.className = 'tfe-start-marker';
     marker.contentEditable = 'false';
-    marker.title = 'Selection start — click 🗑 to delete to cursor';
+    marker.setAttribute('data-tfe-marker', '1');
     range.insertNode(marker);
 
-    // Highlight the line containing the marker
-    var block = marker.closest('p,h1,h2,h3,h4,li,blockquote,div');
-    if (block) block.classList.add('tfe-mark-line');
-
     this._startMarker = marker;
-    this._startMarkerBlock = block;
+    this._startMarkerBlock = marker.closest('p,h1,h2,h3,h4,li,blockquote,div');
 
-    // Update 📍 button to show active state
+    // Update 📍 button → active blue
     this._updateMarkerBtn(true);
 
-    // Move cursor after the marker
+    // Move cursor to just after the marker
     var r2 = document.createRange();
     r2.setStartAfter(marker);
     r2.collapse(true);
     sel.removeAllRanges();
     sel.addRange(r2);
+
+    // Start listening for cursor moves to highlight the range
+    self._markerSelListener = function() { self._highlightMarkerRange(); };
+    document.addEventListener('selectionchange', self._markerSelListener);
+  };
+
+  // Highlight the range from marker to current cursor using native Selection API
+  TinyEditor.prototype._highlightMarkerRange = function () {
+    if (!this._startMarker || !this._ed) return;
+    var sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return;
+
+    // Only act when cursor is inside our editor
+    if (!this._ed.contains(sel.anchorNode)) return;
+
+    var curRange = sel.getRangeAt(0);
+
+    // Build selection range: from after marker → to current cursor
+    try {
+      var highlightRange = document.createRange();
+      highlightRange.setStartAfter(this._startMarker);
+      highlightRange.setEnd(curRange.endContainer, curRange.endOffset);
+
+      // If cursor is before marker, flip direction
+      if (highlightRange.collapsed) {
+        highlightRange.setStart(curRange.startContainer, curRange.startOffset);
+        highlightRange.setEndBefore(this._startMarker);
+      }
+
+      if (!highlightRange.collapsed) {
+        sel.removeAllRanges();
+        sel.addRange(highlightRange);
+        // Store the range so 🗑 can use it
+        this._markerHighlightRange = highlightRange.cloneRange();
+        this._updateDeleteBtn(true);
+      } else {
+        this._markerHighlightRange = null;
+        this._updateDeleteBtn(false);
+      }
+    } catch(e) {}
   };
 
   TinyEditor.prototype._clearStartMarker = function () {
-    if (this._startMarker) {
-      if (this._startMarkerBlock) this._startMarkerBlock.classList.remove('tfe-mark-line');
-      this._startMarker.remove();
-      this._startMarker = null;
-      this._startMarkerBlock = null;
+    // Remove selection listener
+    if (this._markerSelListener) {
+      document.removeEventListener('selectionchange', this._markerSelListener);
+      this._markerSelListener = null;
     }
+    // Remove the marker span
+    if (this._startMarker && this._startMarker.parentNode) {
+      this._startMarker.remove();
+    }
+    this._startMarker = null;
+    this._startMarkerBlock = null;
+    this._markerHighlightRange = null;
+    // Clear browser selection
+    var sel = window.getSelection();
+    if (sel) sel.removeAllRanges();
+    // Reset buttons
     this._updateMarkerBtn(false);
     this._updateDeleteBtn(false);
   };
 
   TinyEditor.prototype._updateMarkerBtn = function (active) {
-    var btn = this._wrap && this._wrap.querySelector('.tfe-btn[title*="Mark selection"]');
+    // Use data-action selector so title change doesn't break lookup
+    var btn = this._wrap && this._wrap.querySelector('.tfe-btn[data-action="markStart"]');
     if (!btn) return;
     if (active) {
       btn.classList.add('tfe-btn--active');
@@ -656,21 +743,52 @@
   };
 
   TinyEditor.prototype._updateDeleteBtn = function (active) {
-    var btn = this._wrap && this._wrap.querySelector('.tfe-btn[title*="Delete selection"]');
+    var btn = this._wrap && this._wrap.querySelector('.tfe-btn[data-action="deleteSelection"]');
     if (!btn) return;
-    if (active) {
-      btn.classList.add('tfe-btn--danger');
-    } else {
-      btn.classList.remove('tfe-btn--danger');
-    }
+    if (active) btn.classList.add('tfe-btn--danger');
+    else btn.classList.remove('tfe-btn--danger');
   };
 
   TinyEditor.prototype._deleteSelection = function () {
     var sel = window.getSelection();
 
-    // Case 1: Text is manually selected → delete it
+    // Case 1: Marker is set — delete the highlighted range
+    if (this._startMarker) {
+      var delSel = window.getSelection();
+      var useRange = null;
+
+      // Prefer live browser selection (set by _highlightMarkerRange)
+      if (delSel && !delSel.isCollapsed && this._ed.contains(delSel.anchorNode)) {
+        useRange = delSel.getRangeAt(0).cloneRange();
+      } else if (this._markerHighlightRange) {
+        useRange = this._markerHighlightRange.cloneRange();
+      }
+
+      if (useRange && !useRange.collapsed) {
+        // Remove marker node from DOM first (it may be inside the range)
+        if (this._startMarker && this._startMarker.parentNode) {
+          this._startMarker.remove();
+          this._startMarker = null;
+        }
+        // Delete the range
+        try { useRange.deleteContents(); } catch(e) {}
+        // Clean up empty blocks
+        Array.from(this._ed.querySelectorAll('p,h1,h2,h3,h4,li')).forEach(function(el) {
+          if (el.textContent.trim() === '' && !el.querySelector('br')) {
+            el.innerHTML = '<br>';
+          }
+        });
+        this._clearStartMarker();
+        this._updateSize();
+      } else {
+        this._clearStartMarker();
+        this._showDeleteHint();
+      }
+      return;
+    }
+
+    // Case 2: Manual text selection (no marker) → delete it
     if (sel && !sel.isCollapsed && this._ed.contains(sel.anchorNode)) {
-      // Check if selection spans multiple blocks
       var range = sel.getRangeAt(0);
       var startBlock = (range.startContainer.nodeType===3
         ? range.startContainer.parentElement
@@ -680,18 +798,17 @@
         : range.endContainer).closest('p,h1,h2,h3,h4,li,div,blockquote,pre');
 
       if (startBlock !== endBlock) {
-        // Multi-block: collect and remove all blocks in range
         this._deleteBlockRange(range);
       } else {
-        // Single block: just delete selected text
         range.deleteContents();
       }
-      this._clearStartMarker();
       this._updateSize();
       return;
     }
 
-    // Case 2: Start marker set → delete from marker to current cursor
+    // Case 3: Nothing selected or marked
+    // (old Case 2 fallback kept for compatibility)
+    // Start marker set → delete from marker to current cursor
     if (this._startMarker) {
       if (!sel || !sel.rangeCount) return;
       var curRange = sel.getRangeAt(0);
@@ -838,8 +955,8 @@
   };
 
   TinyEditor.prototype._showDeleteHint = function () {
-    var hint = this._wrap && this._wrap.querySelector('.tfe-size');
-    if (!hint) return;
+    if (!this._sizeEl) return;
+    var hint = this._sizeEl;
     var orig = hint.textContent;
     hint.textContent = '💡 Select text or click 📍 first, then 🗑';
     hint.style.color = 'var(--tfe-acc,#4f8ef7)';
@@ -855,17 +972,32 @@
       + '</div>';
   };
 
+  // Delete block range when using marker (handles marker node inside the range)
+  TinyEditor.prototype._deleteBlockRangeFromMarker = function (range) {
+    // Remove the marker first so it doesn't get in the way
+    var markerParent = this._startMarker && this._startMarker.parentNode;
+    if (this._startMarker && markerParent) {
+      this._startMarker.remove();
+      this._startMarker = null;
+    }
+    // Now delete the range contents
+    try { range.deleteContents(); } catch(e) {}
+  };
+
   // ── Selection watcher — activates 🗑 when text selected ─────────────────────
   TinyEditor.prototype._initSelectionWatcher = function () {
     var self = this;
     document.addEventListener('selectionchange', function () {
+      // When marker is active, _highlightMarkerRange handles selection
+      // — don't interfere here
+      if (self._startMarker) return;
+
       var sel = window.getSelection();
       if (!sel || sel.isCollapsed || !self._ed.contains(sel.anchorNode)) {
-        // No selection in our editor — only deactivate if no marker set
-        if (!self._startMarker) self._updateDeleteBtn(false);
+        self._updateDeleteBtn(false);
         return;
       }
-      // Text selected in editor → activate delete button
+      // Manual text selected in editor → activate 🗑
       self._updateDeleteBtn(true);
     });
   };
@@ -1179,6 +1311,81 @@
     return result.trim();
   };
 
+  // ── Mobile keyboard toolbar fix ──────────────────────────────────────────────
+  // When the soft keyboard opens on mobile, the toolbar slides up out of view.
+  // Fix: move the toolbar to a fixed bottom bar that follows the visual viewport.
+  TinyEditor.prototype._initMobileToolbar = function () {
+    var self = this;
+    var tb = this._wrap && this._wrap.querySelector('.tfe-toolbar');
+    if (!tb) return;
+
+    // Only activate on touch devices
+    var isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+    if (!isTouch) return;
+
+    // Move toolbar to document.body as a fixed bottom bar
+    tb.classList.add('tfe-toolbar-bottom');
+    document.body.appendChild(tb);
+    this._tb = tb;
+
+    var showToolbar = function() {
+      tb.classList.add('tfe-tb-visible');
+    };
+    var hideToolbar = function() {
+      tb.classList.remove('tfe-tb-visible');
+    };
+
+    // Show when editor is focused
+    self._ed.addEventListener('focus', showToolbar);
+
+    // Use visualViewport to track keyboard open/close
+    if (window.visualViewport) {
+      var vv = window.visualViewport;
+
+      var onViewportChange = function() {
+        var vvHeight = window.visualViewport.height;
+        var vvOffset = window.visualViewport.offsetTop || 0;
+        var winHeight = window.innerHeight;
+        var keyboardOpen = vvHeight < winHeight * 0.85;
+        if (keyboardOpen) {
+          // Keyboard open — position toolbar just above keyboard
+          var kbHeight = winHeight - vvHeight - vvOffset;
+          tb.style.bottom = Math.max(0, kbHeight) + 'px';
+          showToolbar();
+        } else {
+          // Keyboard closed — hide toolbar (editor may still be focused)
+          tb.style.bottom = '0';
+          // Only hide if editor not focused
+          if (document.activeElement !== self._ed) {
+            hideToolbar();
+          }
+        }
+      };
+
+      vv.addEventListener('resize', onViewportChange);
+      vv.addEventListener('scroll', onViewportChange);
+      self._vvListener = onViewportChange;
+    }
+
+    // Also show/hide on blur with a small delay (to allow toolbar button taps)
+    self._ed.addEventListener('blur', function() {
+      setTimeout(function() {
+        // Don't hide if focus went to a toolbar button
+        if (document.activeElement && tb.contains(document.activeElement)) return;
+        hideToolbar();
+      }, 200);
+    });
+
+    // Cleanup on destroy
+    self._cleanupMobileToolbar = function() {
+      if (self._vvListener && window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', self._vvListener);
+        window.visualViewport.removeEventListener('scroll', self._vvListener);
+      }
+      if (tb.parentNode) tb.parentNode.removeChild(tb);
+    };
+  };
+
   // ── Floating selection delete button ─────────────────────────────────────────
   TinyEditor.prototype._initSelectionDelete = function () {
     var self = this;
@@ -1222,10 +1429,10 @@
   // ── Line-level delete buttons (add to every editable block) ───────────────
   TinyEditor.prototype._addLineDelButtons = function () {
     var self = this;
-    var SELECTORS = 'p,h1,h2,h3,h4,li,blockquote';
-    // Use MutationObserver to add del button to new nodes
-    var observer = new MutationObserver(function() { self._syncLineDelButtons(); });
-    observer.observe(this._ed, {childList:true, subtree:false});
+    // Store observer so it can be disconnected if needed
+    if (this._lineDelObserver) this._lineDelObserver.disconnect();
+    this._lineDelObserver = new MutationObserver(function() { self._syncLineDelButtons(); });
+    this._lineDelObserver.observe(this._ed, {childList:true, subtree:false});
     this._syncLineDelButtons();
   };
 
@@ -1655,6 +1862,186 @@
   };
 
   // ── Media Modal ──────────────────────────────────────────────────────────────
+  // ── PDF.js viewer ────────────────────────────────────────────────────────────
+  var PDFJS_CDN = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js';
+  var PDFJS_WORKER = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+
+  // Load PDF.js once, lazily
+  TinyEditor.prototype._loadPdfJs = function (cb) {
+    if (window.pdfjsLib) { cb(null, window.pdfjsLib); return; }
+    var script = document.createElement('script');
+    script.src = PDFJS_CDN;
+    script.onload = function() {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
+      cb(null, window.pdfjsLib);
+    };
+    script.onerror = function() { cb(new Error('Failed to load PDF.js')); };
+    document.head.appendChild(script);
+  };
+
+  // Build the PDF embed HTML shell (canvases filled by _renderPdfJs after insert)
+  TinyEditor.prototype._buildPdfEmbed = function (src, label) {
+    var id = 'tfe-pdf-' + Date.now();
+    return '<div class="tfe-block-wrap" contenteditable="false">'
+      + '<button class="tfe-del-btn" onclick="this.parentElement.remove()" title="Delete PDF">&#10005;</button>'
+      + '<div class="tfe-pdf-wrap" id="' + id + '" data-pdf-src="' + _esc(src) + '">'
+      + '<div class="tfe-pdf-loading">&#128209; Loading PDF.js&hellip;</div>'
+      + '</div></div>';
+  };
+
+  // Render all unrendered PDF wraps in the editor using PDF.js
+  TinyEditor.prototype._renderPdfJs = function (wrap) {
+    var self = this;
+    var src = wrap.getAttribute('data-pdf-src');
+    if (!src || wrap.getAttribute('data-pdf-loaded')) return;
+    wrap.setAttribute('data-pdf-loaded', '1');
+
+    self._loadPdfJs(function(err, pdfjsLib) {
+      if (err) {
+        wrap.innerHTML = '<div class="tfe-pdf-error">&#9888; Could not load PDF.js<br><small>' + err.message + '</small></div>';
+        return;
+      }
+
+      var loadingTask = pdfjsLib.getDocument(src);
+      loadingTask.promise.then(function(pdf) {
+        var totalPages = pdf.numPages;
+        var currentPage = 1;
+        var label = src.split('/').pop().split('?')[0] || 'document.pdf';
+
+        // Build UI
+        wrap.innerHTML =
+          '<div class="tfe-pdf-canvas-wrap" id="' + wrap.id + '-pages"></div>'
+          + '<div class="tfe-pdf-bar">'
+          + '<button class="tfe-pdf-btn" id="' + wrap.id + '-prev">&#8592; Prev</button>'
+          + '<span id="' + wrap.id + '-info">' + _esc(label) + ' &nbsp;|&nbsp; Page 1 / ' + totalPages + '</span>'
+          + '<button class="tfe-pdf-btn" id="' + wrap.id + '-next">Next &#8594;</button>'
+          + '</div>';
+
+        var pagesEl = document.getElementById(wrap.id + '-pages');
+        var infoEl  = document.getElementById(wrap.id + '-info');
+        var prevBtn = document.getElementById(wrap.id + '-prev');
+        var nextBtn = document.getElementById(wrap.id + '-next');
+
+        var renderPage = function(num) {
+          currentPage = num;
+          prevBtn.disabled = num <= 1;
+          nextBtn.disabled = num >= totalPages;
+          infoEl.textContent = label + '  |  Page ' + num + ' / ' + totalPages;
+
+          pdf.getPage(num).then(function(page) {
+            // Scale to fit container width
+            var containerW = wrap.offsetWidth || 360;
+            var viewport = page.getViewport({scale: 1});
+            var scale = (containerW - 16) / viewport.width;
+            var scaledVP = page.getViewport({scale: Math.max(0.5, Math.min(scale, 3))});
+
+            var canvas = document.createElement('canvas');
+            canvas.className = 'tfe-pdf-canvas';
+            canvas.width  = scaledVP.width;
+            canvas.height = scaledVP.height;
+            pagesEl.innerHTML = '';
+            pagesEl.appendChild(canvas);
+
+            page.render({canvasContext: canvas.getContext('2d'), viewport: scaledVP});
+          });
+        };
+
+        prevBtn.onclick = function() { if (currentPage > 1) renderPage(currentPage - 1); };
+        nextBtn.onclick = function() { if (currentPage < totalPages) renderPage(currentPage + 1); };
+
+        renderPage(1);
+
+      }).catch(function(err) {
+        wrap.innerHTML = '<div class="tfe-pdf-error">&#9888; ' + _esc(err.message || 'Failed to load PDF') + '</div>';
+      });
+    });
+  };
+
+  // Scan editor for unrendered PDFs and render them
+  TinyEditor.prototype._renderAllPdfs = function () {
+    var self = this;
+    var wraps = this._ed.querySelectorAll('.tfe-pdf-wrap[data-pdf-src]:not([data-pdf-loaded])');
+    wraps.forEach(function(w) { self._renderPdfJs(w); });
+  };
+
+  // ── Import Doc Modal ─────────────────────────────────────────────────────────
+  TinyEditor.prototype._openImportDocModal = function () {
+    var self = this;
+    var existing = document.getElementById('tfe-doc-modal');
+    if (existing) existing.remove();
+
+    var modal = document.createElement('div');
+    modal.id = 'tfe-doc-modal';
+    modal.className = 'tfe-doc-modal';
+    modal.innerHTML =
+      '<div class="tfe-doc-box">'
+      + '<div class="tfe-doc-title">'
+      +   '<span style="display:flex;align-items:center;gap:8px">&#128196; Import Document</span>'
+      +   '<button class="tfe-media-close" id="tfe-doc-close">&#10005;</button>'
+      + '</div>'
+
+      // Markdown card
+      + '<div class="tfe-doc-card tfe-doc-card--md" id="tfe-doc-md">'
+      +   '<div class="tfe-doc-card-icon">&#128196;</div>'
+      +   '<div class="tfe-doc-card-info">'
+      +     '<div class="tfe-doc-card-name">Markdown File</div>'
+      +     '<div class="tfe-doc-card-desc">Import a .md file — headings, bold, tables, code blocks and lists are fully converted</div>'
+      +   '</div>'
+      +   '<span class="tfe-doc-card-badge">.md</span>'
+      + '</div>'
+
+      // HTML card
+      + '<div class="tfe-doc-card tfe-doc-card--html" id="tfe-doc-html">'
+      +   '<div class="tfe-doc-card-icon">&#127760;</div>'
+      +   '<div class="tfe-doc-card-info">'
+      +     '<div class="tfe-doc-card-name">HTML File</div>'
+      +     '<div class="tfe-doc-card-desc">Import a .html file — scripts and event handlers are removed for safety</div>'
+      +   '</div>'
+      +   '<span class="tfe-doc-card-badge">.html</span>'
+      + '</div>'
+
+      // PDF card — embeds PDF as iframe viewer
+      + '<div class="tfe-doc-card tfe-doc-card--pdf" id="tfe-doc-pdf">'
+      +   '<div class="tfe-doc-card-icon">&#128209;</div>'
+      +   '<div class="tfe-doc-card-info">'
+      +     '<div class="tfe-doc-card-name">PDF File</div>'
+      +     '<div class="tfe-doc-card-desc">Embed a .pdf file inline — renders as a scrollable PDF viewer</div>'
+      +   '</div>'
+      +   '<span class="tfe-doc-card-badge">.pdf</span>'
+      + '</div>'
+
+      + '</div>';
+
+    document.body.appendChild(modal);
+
+    var close = function() { modal.remove(); };
+    document.getElementById('tfe-doc-close').onclick = close;
+    modal.onclick = function(e) { if (e.target === modal) close(); };
+
+    // Markdown
+    document.getElementById('tfe-doc-md').onclick = function() {
+      close();
+      self._file_md.click();
+    };
+
+    // HTML
+    document.getElementById('tfe-doc-html').onclick = function() {
+      close();
+      self._file_html.click();
+    };
+
+    // PDF — embed as iframe
+    document.getElementById('tfe-doc-pdf').onclick = function() {
+      close();
+      self._file_pdf.click();
+    };
+  };
+
+  TinyEditor.prototype._isLinkMode = function () {
+    var r = document.getElementById('tfe-mode-link');
+    return !!(r && r.checked);
+  };
+
   TinyEditor.prototype._openMediaModal = function () {
     var self = this;
     var existing = document.getElementById('tfe-media-modal');
@@ -1754,9 +2141,7 @@
       });
     });
 
-    var isLinkMode = function() {
-      return !!(document.getElementById('tfe-mode-link') && document.getElementById('tfe-mode-link').checked);
-    };
+    var isLinkMode = function() { return self._isLinkMode(); };
 
     // URL insert
     if (showUrl) {
@@ -2053,36 +2438,34 @@
   };
 
   TinyEditor.prototype._insertMediaByUrl = function (url) {
+    var self = this;
     this._ed.focus();
     var html = this._buildMediaHtml(url);
-    // Wrap embeds, images and videos with delete handle
-    if (html.includes('<iframe') || html.includes('<video') || html.includes('<img')) {
+    // _buildPdfEmbed already wraps in tfe-block-wrap — don't double-wrap
+    if (!html.includes('tfe-block-wrap') &&
+        (html.includes('<iframe') || html.includes('<video') || html.includes('<img'))) {
       html = this._wrapBlock(html);
     }
-    document.execCommand('insertHTML', false, html + '<p><br></p>');
+    this._insertHtmlAtCursor(html + '<p><br></p>');
     this._updateSize();
+    // Render PDF.js viewer after DOM settles
+    if (html.includes('tfe-pdf-wrap')) {
+      setTimeout(function() { self._renderAllPdfs(); }, 300);
+    }
   };
 
   TinyEditor.prototype._buildMediaHtml = function (url) {
+    var self = this;
     var u = url.trim();
     // YouTube
     var ytM = u.match(/(?:youtube\.com\/watch\?.*v=|youtu\.be\/|youtube\.com\/shorts\/|youtube\.com\/embed\/)([\w-]+)/);
-    if (ytM) return '<div contenteditable="false" style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:8px;margin:6px 0">'
-      + '<iframe src="https://www.youtube.com/embed/' + ytM[1] + '?rel=0" '
-      + 'style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;border-radius:8px" '
-      + 'allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture" allowfullscreen></iframe></div>';
+    if (ytM) return '<div class="tfe-video-wrap" contenteditable="false"><iframe class="tfe-video-iframe" src="https://www.youtube.com/embed/' + ytM[1] + '?rel=0" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture" allowfullscreen></iframe></div>';
     // Vimeo
     var vmM = u.match(/vimeo\.com\/(\d+)/);
-    if (vmM) return '<div contenteditable="false" style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:8px;margin:6px 0">'
-      + '<iframe src="https://player.vimeo.com/video/' + vmM[1] + '?badge=0&autopause=0" '
-      + 'style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;border-radius:8px" '
-      + 'allow="autoplay;fullscreen;picture-in-picture" allowfullscreen></iframe></div>';
+    if (vmM) return '<div class="tfe-video-wrap" contenteditable="false"><iframe class="tfe-video-iframe" src="https://player.vimeo.com/video/' + vmM[1] + '?badge=0&autopause=0" allow="autoplay;fullscreen;picture-in-picture" allowfullscreen></iframe></div>';
     // Facebook video
     var fbM = u.match(/facebook\.com\/.*\/videos\/(\d+)/i) || u.match(/fb\.watch\/([\w-]+)/);
-    if (fbM) return '<div contenteditable="false" style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:8px;margin:6px 0">'
-      + '<iframe src="https://www.facebook.com/plugins/video.php?href=' + encodeURIComponent(u) + '&show_text=false" '
-      + 'style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;border-radius:8px" '
-      + 'allow="autoplay;clipboard-write;encrypted-media;picture-in-picture;web-share" allowfullscreen></iframe></div>';
+    if (fbM) return '<div class="tfe-video-wrap" contenteditable="false"><iframe class="tfe-video-iframe" src="https://www.facebook.com/plugins/video.php?href=' + encodeURIComponent(u) + '&show_text=false" allow="autoplay;clipboard-write;encrypted-media;picture-in-picture;web-share" allowfullscreen></iframe></div>';
     // Instagram post/reel
     var igM = u.match(/instagram\.com\/(p|reel|tv)\/([\w-]+)/);
     if (igM) return '<div contenteditable="false" style="border:1px solid var(--tfe-bdr,#2d2d2d);border-radius:8px;margin:6px 0;overflow:hidden">'
@@ -2094,12 +2477,13 @@
       + '<iframe src="https://platform.twitter.com/embed/Tweet.html?id=' + twM[1] + '" '
       + 'style="width:100%;min-height:250px;border:none" loading="lazy"></iframe></div>';
     // Direct video file
-    if (/\.(mp4|webm|ogg|mov)(\?|$)/i.test(u)) return '<video controls contenteditable="false" '
-      + 'style="max-width:100%;border-radius:6px;margin:4px 0;display:block;background:#000" preload="metadata">'
-      + '<source src="' + _esc(u) + '">Your browser does not support video.</video>';
+    if (/\.(mp4|webm|ogg|mov)(\?|$)/i.test(u)) return '<video class="tfe-vid-block" controls contenteditable="false" preload="metadata"><source src="' + _esc(u) + '">Your browser does not support video.</video>';
     // Direct image file
-    if (/\.(jpe?g|png|gif|webp|svg|bmp)(\?|$)/i.test(u)) return '<img src="' + _esc(u)
-      + '" style="max-width:100%;border-radius:4px;margin:4px 0;display:block">';
+    if (/\.(jpe?g|png|gif|webp|svg|bmp)(\?|$)/i.test(u)) return '<img class="tfe-img-block" src="' + _esc(u) + '">';
+    // PDF URL — render with PDF.js viewer
+    if (/\.pdf(\?|$)/i.test(u)) {
+      return self._buildPdfEmbed(u, u.split('/').pop().split('?')[0] || 'document.pdf');
+    }
     // Generic link fallback
     return '<a href="' + _esc(u) + '" target="_blank" style="color:var(--tfe-acc,#4f8ef7)">' + _esc(u) + '</a>';
   };
@@ -2174,6 +2558,22 @@
         setTimeout(function() { self._syncLineDelButtons(); }, 100);
       };
       reader.readAsText(file);
+    } else if (type === 'pdf') {
+      // Read as ArrayBuffer → blob URL → PDF.js renders it
+      reader.onload = function (ev) {
+        var blob = new Blob([ev.target.result], {type: 'application/pdf'});
+        var blobUrl = URL.createObjectURL(blob);
+        var label = file.name || 'document.pdf';
+        var html = self._buildPdfEmbed(blobUrl, label);
+        self._insertHtmlAtCursor(html);
+        self._updateSize();
+        // Render after DOM settles
+        setTimeout(function() {
+          var wrap = self._ed.querySelector('.tfe-pdf-wrap:not([data-pdf-loaded])');
+          if (wrap) self._renderPdfJs(wrap);
+        }, 300);
+      };
+      reader.readAsArrayBuffer(file);
     }
     e.target.value = '';
   };
