@@ -65,6 +65,7 @@
 .tfe-toolbar-bottom{border-top:1px solid var(--tfe-bdr,#2d2d2d);border-bottom:none;padding:6px 8px env(safe-area-inset-bottom,0);position:fixed;bottom:0;left:0;right:0;z-index:10000;background:var(--tfe-sur,#141414);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);transform:translateY(100%);transition:transform .2s ease;box-shadow:0 -1px 12px rgba(0,0,0,.3)}
 .tfe-toolbar-bottom.tfe-tb-visible{transform:translateY(0)}
 .tfe-btn{background:var(--tfe-sur2,#1e1e1e);border:1px solid var(--tfe-bdr,#2d2d2d);border-radius:6px;color:var(--tfe-txt,#e0e0e0);font-size:13px;font-weight:600;padding:4px 9px;cursor:pointer;min-width:30px;transition:background .15s;line-height:1.4}
+.tfe-btn *{pointer-events:none}
 .tfe-btn:hover{background:var(--tfe-acc,#4f8ef7);color:#fff;border-color:var(--tfe-acc,#4f8ef7)}
 .tfe-btn:active{transform:scale(.95)}
 .tfe-size{font-size:10px;color:var(--tfe-mut,#888);text-align:right;padding:2px 0 4px}
@@ -173,13 +174,15 @@
 .tfe-url-wrap{display:inline-flex;align-items:center;gap:4px}
 .tfe-preview-btn{background:var(--tfe-sur2,#1e1e1e);border:1px solid var(--tfe-bdr,#2d2d2d);border-radius:4px;font-size:11px;cursor:pointer;padding:1px 5px;color:var(--tfe-mut,#888);flex-shrink:0}
 .tfe-block-wrap{position:relative;margin:4px 0}
-.tfe-block-wrap .tfe-del-btn{position:absolute;top:4px;left:-22px;width:18px;height:18px;background:rgba(226,75,74,.15);border:1px solid rgba(226,75,74,.4);border-radius:50%;color:#e24b4a;font-size:11px;font-weight:900;cursor:pointer;display:none;align-items:center;justify-content:center;line-height:1;z-index:10;transition:background .15s}
-.tfe-block-wrap:hover .tfe-del-btn{display:flex}
+.tfe-block-wrap .tfe-del-btn{position:absolute;top:4px;left:-22px;width:18px;height:18px;background:rgba(226,75,74,.15);border:1px solid rgba(226,75,74,.4);border-radius:50%;color:#e24b4a;font-size:11px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;z-index:10;opacity:0;visibility:hidden;transition:opacity .15s,visibility .15s,background .15s;pointer-events:none}
+.tfe-block-wrap:hover .tfe-del-btn{opacity:1;visibility:visible;pointer-events:auto}
 .tfe-block-wrap .tfe-del-btn:hover{background:rgba(226,75,74,.35)}
+.tfe-touch .tfe-block-wrap .tfe-del-btn{opacity:1;visibility:visible;pointer-events:auto}
 .tfe-editor{padding-left:26px !important}
-.tfe-line-del{position:absolute;left:-22px;top:50%;transform:translateY(-50%);width:16px;height:16px;background:rgba(226,75,74,.1);border:1px solid rgba(226,75,74,.3);border-radius:50%;color:#e24b4a;font-size:10px;font-weight:900;cursor:pointer;display:none;align-items:center;justify-content:center;line-height:1;z-index:9;transition:background .15s}
-.tfe-editor p:hover>.tfe-line-del,.tfe-editor h1:hover>.tfe-line-del,.tfe-editor h2:hover>.tfe-line-del,.tfe-editor h3:hover>.tfe-line-del,.tfe-editor li:hover>.tfe-line-del,.tfe-editor blockquote:hover>.tfe-line-del{display:flex}
+.tfe-line-del{position:absolute;left:-22px;top:50%;transform:translateY(-50%);width:16px;height:16px;background:rgba(226,75,74,.1);border:1px solid rgba(226,75,74,.3);border-radius:50%;color:#e24b4a;font-size:10px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;z-index:9;opacity:0;visibility:hidden;transition:opacity .15s,visibility .15s,background .15s;pointer-events:none}
+.tfe-editor p:hover>.tfe-line-del,.tfe-editor h1:hover>.tfe-line-del,.tfe-editor h2:hover>.tfe-line-del,.tfe-editor h3:hover>.tfe-line-del,.tfe-editor li:hover>.tfe-line-del,.tfe-editor blockquote:hover>.tfe-line-del{opacity:1;visibility:visible;pointer-events:auto}
 .tfe-line-del:hover{background:rgba(226,75,74,.35)}
+.tfe-touch .tfe-editor p>.tfe-line-del,.tfe-touch .tfe-editor h1>.tfe-line-del,.tfe-touch .tfe-editor h2>.tfe-line-del,.tfe-touch .tfe-editor h3>.tfe-line-del,.tfe-touch .tfe-editor li>.tfe-line-del,.tfe-touch .tfe-editor blockquote>.tfe-line-del{opacity:1;visibility:visible;pointer-events:auto}
 .tfe-editor p,.tfe-editor h1,.tfe-editor h2,.tfe-editor h3,.tfe-editor h4,.tfe-editor li,.tfe-editor blockquote{position:relative}
 #tfe-sel-del{position:fixed;z-index:99999;background:#e24b4a;border:none;border-radius:6px;color:#fff;font-size:12px;font-weight:700;padding:4px 10px;cursor:pointer;display:none;box-shadow:0 2px 8px rgba(0,0,0,.4);pointer-events:auto}
 #tfe-sel-del:hover{background:#c0392b}
@@ -193,8 +196,9 @@
 .tfe-mark-line{background:rgba(79,142,247,.06)}
 .tfe-editor ::selection{background:rgba(79,142,247,.35);color:inherit}
 .tfe-md-group{position:relative;border-left:2px solid rgba(79,142,247,.2);padding-left:4px;margin:4px 0}
-.tfe-md-group-del{position:absolute;top:4px;left:-22px;width:18px;height:18px;background:rgba(226,75,74,.15);border:1px solid rgba(226,75,74,.4);border-radius:50%;color:#e24b4a;font-size:11px;font-weight:900;cursor:pointer;display:none;align-items:center;justify-content:center;line-height:1;z-index:10;transition:background .15s}
-.tfe-md-group:hover>.tfe-md-group-del{display:flex}
+.tfe-md-group-del{position:absolute;top:4px;left:-22px;width:18px;height:18px;background:rgba(226,75,74,.15);border:1px solid rgba(226,75,74,.4);border-radius:50%;color:#e24b4a;font-size:11px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;z-index:10;opacity:0;visibility:hidden;transition:opacity .15s,visibility .15s,background .15s;pointer-events:none}
+.tfe-md-group:hover>.tfe-md-group-del{opacity:1;visibility:visible;pointer-events:auto}
+.tfe-touch .tfe-md-group>.tfe-md-group-del{opacity:1;visibility:visible;pointer-events:auto}
 .tfe-save-bar{display:flex;justify-content:flex-end;padding:8px 0 0}
 .tfe-save-btn{background:var(--tfe-acc,#4f8ef7);border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:700;padding:10px 24px;cursor:pointer}
 .tfe-save-btn:active{opacity:.85}
@@ -349,6 +353,10 @@
     this._addLineDelButtons();
     this._initSelectionWatcher();
     this._initMobileToolbar();
+    // Add touch class so CSS can show del buttons without hover
+    if (('ontouchstart' in window) || (navigator.maxTouchPoints > 0)) {
+      wrap.classList.add('tfe-touch');
+    }
   };
 
   // ── Toolbar actions ────────────────────────────────────────────────────────
@@ -1331,17 +1339,14 @@
     document.body.appendChild(tb);
     this._tb = tb;
 
+    // Always show toolbar immediately — don't wait for focus
+    tb.classList.add('tfe-tb-visible');
+
     var showToolbar = function() {
       tb.classList.add('tfe-tb-visible');
     };
-    var hideToolbar = function() {
-      tb.classList.remove('tfe-tb-visible');
-    };
 
-    // Show when editor is focused
-    self._ed.addEventListener('focus', showToolbar);
-
-    // Use visualViewport to track keyboard open/close
+    // Use visualViewport to reposition toolbar above keyboard
     if (window.visualViewport) {
       var vv = window.visualViewport;
 
@@ -1351,33 +1356,18 @@
         var winHeight = window.innerHeight;
         var keyboardOpen = vvHeight < winHeight * 0.85;
         if (keyboardOpen) {
-          // Keyboard open — position toolbar just above keyboard
           var kbHeight = winHeight - vvHeight - vvOffset;
           tb.style.bottom = Math.max(0, kbHeight) + 'px';
-          showToolbar();
         } else {
-          // Keyboard closed — hide toolbar (editor may still be focused)
           tb.style.bottom = '0';
-          // Only hide if editor not focused
-          if (document.activeElement !== self._ed) {
-            hideToolbar();
-          }
         }
+        showToolbar(); // always visible
       };
 
       vv.addEventListener('resize', onViewportChange);
       vv.addEventListener('scroll', onViewportChange);
       self._vvListener = onViewportChange;
     }
-
-    // Also show/hide on blur with a small delay (to allow toolbar button taps)
-    self._ed.addEventListener('blur', function() {
-      setTimeout(function() {
-        // Don't hide if focus went to a toolbar button
-        if (document.activeElement && tb.contains(document.activeElement)) return;
-        hideToolbar();
-      }, 200);
-    });
 
     // Cleanup on destroy
     self._cleanupMobileToolbar = function() {
@@ -1451,16 +1441,17 @@
       btn.title = 'Delete line';
       btn.textContent = '✕';
       btn.contentEditable = 'false';
-      btn.addEventListener('click', function(e) {
+      var _lineDel = function(e) {
         e.preventDefault();
         e.stopPropagation();
-        // Re-find the closest block in case DOM changed
         var target = btn.parentElement;
         if(target && target !== self._ed) {
           target.remove();
           self._updateSize();
         }
-      });
+      };
+      btn.addEventListener('click', _lineDel);
+      btn.addEventListener('touchend', _lineDel);
       btn.addEventListener('mousedown', function(e) {
         e.preventDefault();
         e.stopPropagation();
@@ -2073,7 +2064,7 @@
       + '</div>'
       + '<div style="font-size:12px;color:var(--tfe-mut,#888);margin-top:8px;line-height:1.7">'
       + '&#127916;&nbsp;YouTube &middot; Vimeo &middot; Facebook &middot; Instagram &middot; Twitter/X<br>'
-      + '&#128444;&nbsp;.jpg .png .gif .webp &nbsp;&#127916;&nbsp;.mp4 .webm'
+      + '&#128444;&nbsp;.jpg .png .gif .webp &nbsp;&#127916;&nbsp;.mp4 .webm &nbsp;&#128209;&nbsp;.pdf'
       + '</div></div>'
     ) : '';
 
@@ -2084,6 +2075,7 @@
       + '<div class="tfe-media-row">'
       + '<button class="tfe-media-btn-sec" id="tfe-mc-img-upload">&#128444;&nbsp; Image</button>'
       + '<button class="tfe-media-btn-sec" id="tfe-mc-vid-upload">&#127916;&nbsp; Video</button>'
+      + '<button class="tfe-media-btn-sec" id="tfe-mc-pdf-upload">&#128209;&nbsp; PDF</button>'
       + '</div>'
       + '<div class="tfe-media-upload-progress" id="tfe-upload-progress">'
       + '<div class="tfe-media-upload-progress-bar" id="tfe-upload-bar"></div></div>'
@@ -2235,6 +2227,13 @@
           close(); self._file_vid.click();
         }
       };
+      // PDF upload
+      if (document.getElementById('tfe-mc-pdf-upload')) {
+        document.getElementById('tfe-mc-pdf-upload').onclick = function() {
+          close();
+          self._file_pdf.click();
+        };
+      }
     }
 
     // Path insert
