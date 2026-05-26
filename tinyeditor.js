@@ -393,6 +393,109 @@
 
   // ── Keyboard shortcuts ─────────────────────────────────────────────────────
   TinyEditor.prototype._onKeyDown = function (e) {
+    var self = this;
+
+    // ── Table cell keyboard fixes ────────────────────────────────────────────
+    var sel = window.getSelection();
+    var anchor = sel && sel.anchorNode;
+    var cell = anchor && (anchor.nodeType === 3 ? anchor.parentElement : anchor).closest('td,th');
+
+    // ── Guard Backspace/Delete against eating line-del button ───────────────
+    if ((e.key === 'Backspace' || e.key === 'Delete') && !cell) {
+      var bSel = window.getSelection();
+      if (bSel && bSel.rangeCount) {
+        var bRange = bSel.getRangeAt(0);
+        if (bRange.collapsed) {
+          var bNode = bRange.startContainer;
+          var bOffset = bRange.startOffset;
+          // Backspace at offset 0 — check if prev node is a tfe-line-del
+          if (e.key === 'Backspace' && bOffset === 0 && bNode.nodeType === 3) {
+            var bPrev = bNode.previousSibling;
+            if (bPrev && bPrev.classList && bPrev.classList.contains('tfe-line-del')) {
+              e.preventDefault(); // don't delete the button
+              return;
+            }
+          }
+          // Backspace when cursor IS on the line-del button node
+          if (e.key === 'Backspace' && bNode.nodeType === 1) {
+            var bFirst = bNode.firstChild;
+            if (bFirst && bFirst.classList && bFirst.classList.contains('tfe-line-del') && bOffset === 0) {
+              // Cursor is at block start, block contains line-del as firstChild
+              e.preventDefault();
+              return;
+            }
+          }
+          // Delete at end of text — check if next node is line-del (shouldn't happen but guard)
+          if (e.key === 'Delete' && bNode.nodeType === 3 && bOffset === bNode.length) {
+            var bNext = bNode.nextSibling;
+            if (bNext && bNext.classList && bNext.classList.contains('tfe-line-del')) {
+              e.preventDefault();
+              return;
+            }
+          }
+        }
+      }
+    }
+
+    if (cell) {
+      // Ctrl+A inside table cell → select only cell contents (not whole editor)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+        e.preventDefault();
+        var r = document.createRange();
+        r.selectNodeContents(cell);
+        sel.removeAllRanges();
+        sel.addRange(r);
+        return;
+      }
+      // Tab in table cell → move to next cell (not indent)
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        var cells = Array.from(cell.closest('table').querySelectorAll('td,th'));
+        var idx = cells.indexOf(cell);
+        var next = cells[e.shiftKey ? idx - 1 : idx + 1];
+        if (next) {
+          var r2 = document.createRange();
+          r2.selectNodeContents(next);
+          r2.collapse(false);
+          sel.removeAllRanges();
+          sel.addRange(r2);
+        }
+        return;
+      }
+      // Delete / Backspace at cell boundary — don't let it escape the cell
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        // Let the browser handle normal in-cell deletion
+        // Only block if selection would escape the cell
+        var range = sel.rangeCount ? sel.getRangeAt(0) : null;
+        if (range && !range.collapsed) {
+          // Has selection — check if it spans outside the cell
+          var startInCell = cell.contains(range.startContainer);
+          var endInCell   = cell.contains(range.endContainer);
+          if (startInCell && !endInCell) {
+            // Selection extends beyond cell — clamp to cell
+            e.preventDefault();
+            var clamp = document.createRange();
+            clamp.setStart(range.startContainer, range.startOffset);
+            clamp.setEnd(cell, cell.childNodes.length);
+            clamp.deleteContents();
+            self._updateSize();
+            return;
+          }
+          if (!startInCell && endInCell) {
+            e.preventDefault();
+            var clamp2 = document.createRange();
+            clamp2.setStart(cell, 0);
+            clamp2.setEnd(range.endContainer, range.endOffset);
+            clamp2.deleteContents();
+            self._updateSize();
+            return;
+          }
+        }
+        // Normal in-cell delete — let browser handle it
+        return;
+      }
+    }
+
     if (e.ctrlKey || e.metaKey) {
       if (e.key === 'b') { e.preventDefault(); this._tbAction('bold'); }
       if (e.key === 'i') { e.preventDefault(); this._tbAction('italic'); }
@@ -473,9 +576,14 @@
 
   // ── Get / Set value ────────────────────────────────────────────────────────
   TinyEditor.prototype.getValue = function () {
-    // Clone editor DOM, strip any start marker before returning HTML
+    // Clone editor DOM, strip UI-only elements before returning HTML
     var clone = this._ed.cloneNode(true);
-    clone.querySelectorAll('.tfe-start-marker,[data-tfe-marker]').forEach(function(el){ el.remove(); });
+    clone.querySelectorAll(
+      '.tfe-start-marker,[data-tfe-marker],' +  // start marker
+      '.tfe-line-del,' +                          // line delete buttons
+      '.tfe-del-btn,' +                           // block delete buttons
+      '.tfe-md-group-del'                         // md group delete button
+    ).forEach(function(el){ el.remove(); });
     return clone.innerHTML;
   };
 
@@ -914,7 +1022,6 @@
     var container = (ancestor && ancestor !== this._ed) ? ancestor.parentElement : this._ed;
 
     var blocks = Array.from(container.children).filter(function(el) {
-      // Skip tfe-md-group-del button and tfe-block-wrap that don't intersect
       return !el.classList.contains('tfe-md-group-del');
     });
 
@@ -939,22 +1046,41 @@
       for (var j = 1; j < toDelete.length - 1; j++) toDelete[j].remove();
       var firstBlock = toDelete[0];
       var lastBlock  = toDelete[toDelete.length - 1];
-      // Delete from range start to end of first block
+
+      // Helper: first real child node (skip tfe-line-del button)
+      var firstReal = function(el) {
+        var c = el.firstChild;
+        while (c && c.classList && c.classList.contains('tfe-line-del')) c = c.nextSibling;
+        return c;
+      };
+      var firstRealIdx = function(el) {
+        var idx = 0;
+        var c = el.firstChild;
+        while (c && c.classList && c.classList.contains('tfe-line-del')) { c = c.nextSibling; idx++; }
+        return idx;
+      };
+
+      // Delete from range start to end of first block (skip line-del button)
       try {
         var fr = document.createRange();
         fr.setStart(range.startContainer, range.startOffset);
         fr.setEnd(firstBlock, firstBlock.childNodes.length);
         fr.deleteContents();
       } catch(e) {}
-      // Delete from start of last block to range end
+      // Delete from start of last block to range end (skip line-del button)
       try {
         var lr = document.createRange();
-        lr.setStart(lastBlock, 0);
+        lr.setStart(lastBlock, firstRealIdx(lastBlock));
         lr.setEnd(range.endContainer, range.endOffset);
         lr.deleteContents();
       } catch(e) {}
-      // Merge remaining content of first and last
-      while (lastBlock.firstChild) firstBlock.appendChild(lastBlock.firstChild);
+      // Merge: move real children of lastBlock into firstBlock (skip line-del)
+      var child = firstReal(lastBlock);
+      while (child) {
+        var nxt = child.nextSibling;
+        firstBlock.appendChild(child);
+        child = nxt;
+      }
       if (lastBlock.parentNode) lastBlock.remove();
     }
   };
@@ -2649,8 +2775,8 @@
         var tds = row.split('|').filter(c=>c.trim()).map(c=>'<td style="'+TD_STYLE+'">'+c.trim()+'</td>').join('');
         return '<tr>'+tds+'</tr>';
       }).join('');
-      return '<div class="tfe-block-wrap" contenteditable="false">'
-        + '<button class="tfe-del-btn" onclick="this.parentElement.remove()" title="Delete block">&#10005;</button>'
+      return '<div class="tfe-block-wrap" contenteditable="true" style="outline:none">'
+        + '<button class="tfe-del-btn" contenteditable="false" onclick="this.parentElement.remove()" title="Delete block">&#10005;</button>'
         + '<table style="border-collapse:collapse;width:100%;margin:8px 0;font-size:13px">'
         + '<thead><tr>'+ths+'</tr></thead><tbody>'+trs+'</tbody></table></div>';
     });
