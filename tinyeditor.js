@@ -465,7 +465,10 @@
 
   // ── Get / Set value ────────────────────────────────────────────────────────
   TinyEditor.prototype.getValue = function () {
-    return this._ed.innerHTML;
+    // Clone editor DOM, strip any start marker before returning HTML
+    var clone = this._ed.cloneNode(true);
+    clone.querySelectorAll('.tfe-start-marker,[data-tfe-marker]').forEach(function(el){ el.remove(); });
+    return clone.innerHTML;
   };
 
   TinyEditor.prototype.setValue = function (html) {
