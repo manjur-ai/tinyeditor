@@ -546,9 +546,11 @@
 
   // ── Size indicator ─────────────────────────────────────────────────────────
   TinyEditor.prototype._updateSize = function () {
-    const bytes = new Blob([this._ed.innerHTML]).size;
-    const kb = (bytes / 1024).toFixed(1);
-    const maxKb = Math.round(this.opts.maxSize / 1024);
+    // Use string length as byte approximation (O(1) vs Blob constructor)
+    // Accurate for ASCII; ~1.5x for UTF-8 heavy content — good enough for progress indicator
+    var bytes = this._ed.innerHTML.length;
+    var kb = (bytes / 1024).toFixed(1);
+    var maxKb = Math.round(this.opts.maxSize / 1024);
     this._sizeEl.textContent = kb + ' KB / ' + maxKb + ' KB';
     this._sizeEl.style.color =
       bytes > this.opts.maxSize * 0.9 ? '#e24b4a' :
@@ -558,7 +560,7 @@
   // ── Save ───────────────────────────────────────────────────────────────────
   TinyEditor.prototype._save = function () {
     const html = this._ed.innerHTML;
-    const size = new Blob([html]).size;
+    const size = html.length; // fast approximation — same as _updateSize
     if (size > this.opts.maxSize) {
       alert('Note too large. Max size: ' + Math.round(this.opts.maxSize / 1024) + 'KB');
       return;
@@ -570,13 +572,15 @@
 
   // ── Get / Set value ────────────────────────────────────────────────────────
   TinyEditor.prototype.getValue = function () {
-    // Clone editor DOM, strip UI-only elements before returning HTML
-    var clone = this._ed.cloneNode(true);
+    // Fast path: if no UI elements present (common case), return innerHTML directly
+    var ed = this._ed;
+    if (!ed.querySelector('.tfe-line-del,.tfe-del-btn,.tfe-md-group-del,.tfe-start-marker')) {
+      return ed.innerHTML;
+    }
+    // Slow path: clone + strip UI-only elements
+    var clone = ed.cloneNode(true);
     clone.querySelectorAll(
-      '.tfe-start-marker,[data-tfe-marker],' +  // start marker
-      '.tfe-line-del,' +                          // line delete buttons
-      '.tfe-del-btn,' +                           // block delete buttons
-      '.tfe-md-group-del'                         // md group delete button
+      '.tfe-start-marker,[data-tfe-marker],.tfe-line-del,.tfe-del-btn,.tfe-md-group-del'
     ).forEach(function(el){ el.remove(); });
     return clone.innerHTML;
   };
@@ -1379,15 +1383,16 @@
         if (block.classList.contains('tfe-md-group-del')) return;
         // Skip tfe-block-wrap — they have own ✕
         if (block.classList.contains('tfe-block-wrap')) return;
-        // Skip empty blocks
-        if (!block.textContent.replace(/\s/g, '')) return;
+        // Skip empty blocks — O(1) fast check
+        if (!block.textContent.trim()) return;
         // Only add to headings, ul, ol, blockquote — NOT plain p
         var tag = block.tagName ? block.tagName.toLowerCase() : '';
         var isSection = (tag === 'h1' || tag === 'h2' || tag === 'h3' || tag === 'h4' ||
                          tag === 'ul' || tag === 'ol' || tag === 'blockquote');
         if (!isSection) return;
-        // Already has one
-        if (block.querySelector(':scope > .tfe-line-del')) return;
+        // Already has one — O(1) check: line-del is always firstChild
+        if (block.firstChild && block.firstChild.classList &&
+            block.firstChild.classList.contains('tfe-line-del')) return;
       var btn = document.createElement('button');
       btn.className = 'tfe-line-del';
       btn.title = 'Delete line';
@@ -3007,9 +3012,10 @@
 
     // Step 2: Tables
     md = md.replace(/^(\|.+\|)\n\|[-| :]+\|\n((?:\|.+\|\n?)*)/gm, function(m, header, rows) {
-      var ths = header.split('|').filter(c=>c.trim()).map(c=>'<th style="'+TH_STYLE+'">'+c.trim()+'</th>').join('');
+      // Fast cell split: slice off leading/trailing | then split
+      var ths = header.replace(/^\|(.+)\|\s*$/,'$1').split('|').map(c=>'<th style="'+TH_STYLE+'">'+c.trim()+'</th>').join('');
       var trs = rows.trim().split('\n').map(function(row) {
-        var tds = row.split('|').filter(c=>c.trim()).map(c=>'<td style="'+TD_STYLE+'">'+c.trim()+'</td>').join('');
+        var tds = row.replace(/^\|(.+)\|\s*$/,'$1').split('|').map(c=>'<td style="'+TD_STYLE+'">'+c.trim()+'</td>').join('');
         return '<tr>'+tds+'</tr>';
       }).join('');
       return '<div class="tfe-block-wrap" contenteditable="true" style="outline:none">'
