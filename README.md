@@ -1,69 +1,101 @@
 # ⚡ TinyEditor
 
-> Zero-dependency, mobile-first rich text editor — no build step, no npm install, just one script tag.
+> Zero-dependency, mobile-first rich text editor — no build step, no bundler, just one script tag.
 
-![8KB](https://img.shields.io/badge/size-8KB-green)
-![Zero deps](https://img.shields.io/badge/dependencies-0-blue)
-![License](https://img.shields.io/badge/license-MIT-orange)
+[![npm version](https://img.shields.io/npm/v/@manjur-ai/tinyeditor)](https://www.npmjs.com/package/@manjur-ai/tinyeditor)
+[![size](https://img.shields.io/badge/minified-72KB-green)](https://unpkg.com/@manjur-ai/tinyeditor/tinyeditor.min.js)
+[![Zero deps](https://img.shields.io/badge/dependencies-0-blue)]()
+[![License](https://img.shields.io/badge/license-MIT-orange)](LICENSE)
 
 ---
 
 ## Why TinyEditor?
 
-Every existing rich text editor (Quill, TipTap, Editor.js) requires:
-- `npm install` + bundler setup
-- 200KB–500KB bundle
-- Desktop-first design
+Every existing rich text editor (Quill, TipTap, Editor.js) requires npm + a bundler, ships 200–500KB, and is desktop-first. **TinyEditor** needs just:
 
-**TinyEditor** needs just:
 ```html
-<script src="tinyeditor.js"></script>
+<script src="https://unpkg.com/@manjur-ai/tinyeditor@latest/tinyeditor.min.js"></script>
 ```
+
+No build step. No dependencies. Works offline. Works in TWA / WebView.
+
+**Fully isolated** — the editor never injects HTML outside its own container. The mobile toolbar stays inside `.tfe-wrap`, modals are scoped to `.tfe-*` class names, and event listeners are instance-bound with `contains()` guards.
 
 ---
 
 ## Features
 
-| Feature | Description |
+### ✏️ Editing
+| Feature | Detail |
 |---|---|
-| **Bold / Italic / Heading** | Toolbar buttons + Ctrl+B / Ctrl+I shortcuts |
-| **Auto URL detection** | Paste a link → shows 👁 preview button |
-| **Link preview cards** | Fetches title, image, description inline |
-| **Inline images** | Paste URL or upload file (base64, max 500KB) |
-| **Image paste** | Ctrl+V an image directly into editor |
-| **Import .md** | Pick a markdown file → converts to HTML at cursor |
-| **Import HTML** | Pick an HTML file → strips scripts, inserts clean content |
-| **Indent / Outdent** | → ← toolbar buttons + Tab / Shift+Tab keyboard shortcut |
-| **Size indicator** | Live KB counter, warns at 70% / 90% of limit |
-| **Dark / Light mode** | Auto-detects system preference |
-| **Mobile-first** | Built for touch, works on desktop too |
-| **Zero dependencies** | No jQuery, no React, no build step |
+| **Bold / Italic / Heading** | Toolbar buttons + `Ctrl+B` / `Ctrl+I` shortcuts |
+| **Indent / Outdent** | Toolbar + `Tab` / `Shift+Tab` (table-cell aware) |
+| **Live Markdown shortcuts** | `# ` → h1, `## ` → h2, `- ` → list, `> ` → blockquote, `**text**` → bold, `` `code` `` → inline code, `---` → divider |
+| **Rich paste** | Preserves bold, italic, headings, lists, links, images, tables from any website |
+| **ChatGPT paste fix** | Code blocks → multiline `<pre>`, lists cleaned (no `<p>` inside `<li>`) |
+| **Table keyboard nav** | `Tab` / `Shift+Tab` moves between cells; `Ctrl+A` scoped to cell; `Delete` clamped to cell |
+
+### 📎 Insert Media
+| Feature | Detail |
+|---|---|
+| **URL auto-detect** | Paste any URL — YouTube/Vimeo/Facebook/Instagram/Twitter → iframe, `.jpg/.png/.gif/.webp` → image, `.mp4/.webm` → video, `.pdf` → PDF.js viewer |
+| **Ambiguous URL overrides** | When URL has no extension, `🖼 Image` / `🎬 Video` buttons appear automatically |
+| **Upload** | Image, Video, PDF — upload to your server |
+| **My Files** | Browse uploaded files, lazy-loaded on demand (👁 Show Files) |
+| **As Embed / As Link** | Global toggle — insert media inline or as a plain `<a>` link |
+| **PDF.js viewer** | PDFs render inline with ← Prev / Next → page navigation (offline, no Google Docs) |
+
+### 📄 Import Doc
+| Format | Detail |
+|---|---|
+| **Markdown (.md)** | Full conversion: headings, bold/italic, tables, code blocks, blockquotes, lists, images, links |
+| **HTML (.html)** | Clean import — scripts and event handlers stripped |
+| **PDF (.pdf)** | Upload a PDF → rendered inline with PDF.js |
+
+### 🗑 Delete System
+
+Two-level structure for imported content:
+
+```
+[✕] md-group          ← delete entire import in one click
+ ├─ [✕] h1/h2/h3      ← delete a heading
+ ├─ [✕] ul/ol         ← delete a whole list
+ ├─ [✕] blockquote    ← delete a blockquote
+ ├─ [✕] code block    ← via block-wrap button
+ └─ [✕] table         ← via block-wrap button
+```
+
+Plain paragraphs have no ✕ button — use `Backspace` / `Delete` as normal.
+
+| Delete method | Works on |
+|---|---|
+| **✕ group button** | Entire MD/HTML import — one click |
+| **✕ block button** | Code blocks, tables, images, videos, PDFs |
+| **✕ line button** | h1-h4, ul, ol, blockquote (inside import only) |
+| **📍 Mark Start + 🗑** | Mark a start point → click end → delete the range |
+| **Keyboard** | Backspace / Delete anywhere; table-cell safe |
+
+### 📱 Mobile
+- Fixed bottom toolbar — **always visible**, never hides
+- Repositions above soft keyboard using `visualViewport` API
+- All delete buttons always visible (no hover needed)
+- **Fully isolated** — toolbar stays inside the editor's DOM container
 
 ---
 
 ## Quick Start
 
-### Browser (no build step)
 ```html
-<div id="my-editor"></div>
+<div id="editor"></div>
 
-<script src="https://unpkg.com/@manjur-ai/tinyeditor/tinyeditor.js"></script>
+<script src="https://unpkg.com/@manjur-ai/tinyeditor@latest/tinyeditor.min.js"></script>
 <script>
   const editor = new TinyEditor({
-    target: '#my-editor',
-    onSave: (html) => console.log('Saved:', html),
+    target: '#editor',
+    value: '<p>Hello world</p>',
+    onSave: (html) => console.log(html),
   });
 </script>
-```
-
-### CommonJS / Node bundler
-```bash
-npm install @manjur-ai/tinyeditor
-```
-```js
-const TinyEditor = require('tinyeditor');
-// or
-import TinyEditor from 'tinyeditor';
 ```
 
 ---
@@ -73,33 +105,47 @@ import TinyEditor from 'tinyeditor';
 ```js
 const editor = new TinyEditor({
   // Required
-  target: '#my-editor',        // CSS selector or DOM element
+  target: '#editor',            // CSS selector or DOM element
 
   // Content
-  value: '<p>Hello</p>',       // Initial HTML
-  placeholder: 'Start writing...', // Placeholder text
-
-  // Limits
-  maxSize: 1048576,             // Max note size in bytes (default: 1MB)
-  maxImageSize: 524288,         // Max image size in bytes (default: 500KB)
-
-  // URL Preview
-  linkPreviewUrl: '/api/link-preview',
-  // Your backend endpoint: GET /api/link-preview?url=<encoded>
-  // Returns: { title, description, image, domain }
-  // Set to null to disable preview buttons
+  value: '<p>Hello</p>',        // Initial HTML
+  placeholder: 'Start writing…',
 
   // Appearance
   darkMode: 'auto',             // 'auto' | 'dark' | 'light'
 
+  // Limits
+  maxSize:      1048576,        // Max content size in bytes (default 1MB)
+  maxImageSize: 524288,         // Max image upload (default 500KB)
+  maxVideoSize: 10485760,       // Max video upload (default 10MB)
+
   // Toolbar
   showToolbar: true,
-  toolbar: ['bold','italic','heading','link','image','importMd','importHtml'],
+  toolbar: [
+    'bold', 'italic', 'heading', 'link',
+    'image',        // media modal (URL + upload + my files)
+    'importDoc',    // import .md / .html / .pdf
+    'indent', 'outdent',
+    'markStart', 'deleteSelection',
+    // Legacy (still work): 'importMd', 'importHtml'
+  ],
   showSaveButton: true,
 
+  // Media upload
+  showMediaUrl:    true,
+  showMediaUpload: true,
+  showMediaFiles:  true,
+  uploadUrl:  '/api/upload',    // POST multipart
+  listUrl:    '/api/uploads',   // GET → [{name,size,url,uploaded_at}]
+  deleteUrl:  '/api/uploads',   // DELETE /api/uploads/:filename
+
+  // Link preview
+  linkPreviewUrl: '/api/link-preview',
+  // GET ?url=<encoded> → { title, description, image, domain }
+
   // Callbacks
-  onChange: (html) => {},       // Called on every change
-  onSave:   (html) => {},       // Called when Save is clicked
+  onChange: (html) => {},
+  onSave:   (html) => {},
 });
 ```
 
@@ -108,46 +154,99 @@ const editor = new TinyEditor({
 ## API
 
 ```js
-editor.getValue()          // → current HTML string
-editor.setValue('<p>x</p>') // → set content
-editor.focus()             // → focus the editor
+editor.getValue()             // → HTML string (UI buttons stripped)
+editor.setValue('<p>hi</p>') // → replace content
+editor.focus()                // → focus the editor
+```
+
+> `getValue()` automatically strips all UI-only elements (`tfe-line-del`, `tfe-del-btn`, `tfe-start-marker`) before returning — the saved HTML is always clean.
+
+---
+
+## Toolbar Reference
+
+| Button | Shortcut | Description |
+|---|---|---|
+| `bold` | `Ctrl+B` | Bold selected text |
+| `italic` | `Ctrl+I` | Italic selected text |
+| `heading` | — | Cycle h2 → h3 → p |
+| `link` | — | Open media modal in Link mode |
+| `image` | — | Open media modal (embed / upload / files) |
+| `importDoc` | — | Import .md / .html / .pdf |
+| `indent` | `Tab` | Indent block |
+| `outdent` | `Shift+Tab` | Outdent block |
+| `markStart` | — | Place 📍 range-delete start marker |
+| `deleteSelection` | — | Delete 📍 range or current selection |
+
+---
+
+## Live Markdown Shortcuts
+
+Type at the start of a line:
+
+| Type | Result |
+|---|---|
+| `# ` | `<h1>` |
+| `## ` | `<h2>` |
+| `### ` | `<h3>` |
+| `- ` | `<ul><li>` |
+| `> ` | `<blockquote>` |
+| `---` | `<hr>` |
+| `**text**` | `<strong>` |
+| `*text*` | `<em>` |
+| `` `text` `` | `<code>` |
+
+---
+
+## Media Upload API
+
+Your backend needs 3 endpoints:
+
+```
+POST   /api/upload              → multipart file upload
+GET    /api/uploads             → list files (JSON array)
+DELETE /api/uploads/:filename   → delete file
+```
+
+**GET response format:**
+```json
+[
+  {
+    "name": "photo.jpg",
+    "size": 102400,
+    "url": "/api/uploads/file/photo.jpg",
+    "uploaded_at": "2026-05-25T10:00:00"
+  }
+]
 ```
 
 ---
 
-## Link Preview Backend
+## PDF.js Viewer
 
-To enable the 👁 preview button, you need a backend endpoint.
+PDFs render locally via [PDF.js](https://mozilla.github.io/pdf.js/) — no server, no Google Docs, works offline and in TWA.
 
-**Python (Flask) example — included in Toolfy Task:**
-```python
-@app.route("/api/link-preview")
-def link_preview():
-    url = request.args.get("url", "")
-    # fetch URL, read og: meta tags, return JSON
-    return jsonify({
-        "title": "...",
-        "description": "...",
-        "image": "https://...",
-        "domain": "youtube.com"
-    })
-```
+Works with:
+- **Uploaded files** — `FileReader` → Blob URL → PDF.js
+- **External `.pdf` URLs** — paste in the media modal → auto-detected
 
-**Node.js (Express) example:**
+If you use a service worker, cache PDF.js permanently so it's never re-downloaded:
+
 ```js
-const cheerio = require('cheerio');
-const axios = require('axios');
+const LIB_CACHE = 'my-libs-v1'; // never delete this cache
 
-app.get('/api/link-preview', async (req, res) => {
-  const { url } = req.query;
-  const { data } = await axios.get(url, { timeout: 5000 });
-  const $ = cheerio.load(data);
-  res.json({
-    title:       $('meta[property="og:title"]').attr('content') || $('title').text(),
-    description: $('meta[property="og:description"]').attr('content') || '',
-    image:       $('meta[property="og:image"]').attr('content') || '',
-    domain:      new URL(url).hostname.replace('www.', ''),
-  });
+self.addEventListener('fetch', (e) => {
+  if (e.request.url.includes('pdfjs-dist')) {
+    e.respondWith(
+      caches.open(LIB_CACHE).then(cache =>
+        cache.match(e.request).then(cached =>
+          cached || fetch(e.request).then(res => {
+            cache.put(e.request, res.clone()); return res;
+          })
+        )
+      )
+    );
+  }
 });
 ```
 
@@ -155,32 +254,31 @@ app.get('/api/link-preview', async (req, res) => {
 
 ## CSS Custom Properties
 
-Override theme variables on the container:
-
 ```css
-#my-editor {
+#editor {
   --tfe-acc:  #4f8ef7;   /* accent / link color */
-  --tfe-bg:   #0f0f0f;   /* background */
-  --tfe-sur:  #141414;   /* surface (preview cards) */
-  --tfe-sur2: #1e1e1e;   /* surface 2 (editor bg, toolbar buttons) */
+  --tfe-bg:   #0f0f0f;   /* page background */
+  --tfe-sur:  #141414;   /* surface (toolbar, modal bg) */
+  --tfe-sur2: #1e1e1e;   /* surface 2 (editor bg, cards) */
   --tfe-bdr:  #2d2d2d;   /* border color */
-  --tfe-txt:  #e0e0e0;   /* text color */
-  --tfe-mut:  #888888;   /* muted text */
+  --tfe-txt:  #e0e0e0;   /* primary text */
+  --tfe-mut:  #888888;   /* muted / placeholder text */
 }
 ```
 
 ---
 
-## Keyboard Shortcuts
+## DOM Isolation
 
-| Shortcut | Action |
+TinyEditor is designed as a standalone component — it does not pollute the host page:
+
+| What | How |
 |---|---|
-| `Ctrl+B` | Bold |
-| `Ctrl+I` | Italic |
-| `Ctrl+S` | Save |
-| `Tab` | Indent current block |
-| `Shift+Tab` | Outdent current block |
-| `Ctrl+V` | Paste image directly |
+| CSS | Injected once as a `<style>` tag, all classes prefixed `.tfe-*` |
+| Mobile toolbar | Stays **inside** `.tfe-wrap` — `position:fixed` via CSS only |
+| Modals | Appended to `<body>` but scoped to `.tfe-*` class names |
+| Event listeners | `selectionchange` guarded by `this._ed.contains()` — fires only for this instance |
+| `getValue()` | Clones the DOM before returning — never mutates the live editor |
 
 ---
 
@@ -188,14 +286,16 @@ Override theme variables on the container:
 
 | | **TinyEditor** | Quill | TipTap | Editor.js |
 |---|---|---|---|---|
-| Size | **23KB** | 430KB | 200KB+ | 300KB+ |
+| Minified size | **72 KB** | 430 KB | 200 KB+ | 300 KB+ |
 | Dependencies | **0** | 0 | ProseMirror | Many |
-| URL preview | **✅ free** | ❌ | 💰 paid | Plugin |
-| MD import | **✅** | ❌ | ✅ | ❌ |
-| HTML import | **✅** | ✅ | ✅ | ❌ |
-| Mobile-first | **✅** | ⚠️ | ⚠️ | ⚠️ |
-| Dark mode | **✅ auto** | Manual | Manual | Manual |
 | No build step | **✅** | ✅ | ❌ | ❌ |
+| Mobile toolbar | **✅ always visible** | ⚠️ | ⚠️ | ⚠️ |
+| PDF viewer | **✅ PDF.js** | ❌ | ❌ | ❌ |
+| MD import | **✅** | ❌ | ✅ | ❌ |
+| Media upload | **✅ built-in** | ❌ | Plugin | Plugin |
+| Dark mode | **✅ auto** | Manual | Manual | Manual |
+| TWA / WebView | **✅** | ⚠️ | ⚠️ | ⚠️ |
+| DOM isolated | **✅** | ⚠️ | ⚠️ | ⚠️ |
 
 ---
 

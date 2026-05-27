@@ -21,9 +21,9 @@
     target:         '#tinyeditor',  // CSS selector or DOM element
     value:          '',                // Initial HTML content
     placeholder:    'Start writing...', // Placeholder text
-    maxSize:        1048576,           // Max note size in bytes (1MB)
-    maxImageSize:   524288,            // Max image size in bytes (500KB)
-    maxVideoSize:   10485760,          // Max video upload size (10MB)
+    maxSize:        10485760,          // Max overall content size (10MB)
+    maxImageSize:   1048576,           // Max image/pdf upload size (1MB)
+    maxVideoSize:   1048576,           // Max video upload size (1MB)
     mediaBasePath:  '',                // Optional base path e.g. '/uploads/'
     allowedImageTypes: ['image/jpeg','image/png','image/gif','image/webp','image/svg+xml'],
     allowedVideoTypes: ['video/mp4','video/webm','video/ogg'],
@@ -43,7 +43,7 @@
     onSave:         null,              // fn(html) — called when Save is clicked
     showSaveButton: true,
     showToolbar:    true,
-    toolbar: ['bold','italic','heading','link','image','importDoc','indent','outdent','markStart','deleteSelection','rawHtml'],
+    toolbar: ['bold','italic','heading','importMedia','importDoc','indent','outdent','markStart','deleteSelection'],
   };
 
   // ── CSS injected once ──────────────────────────────────────────────────────
@@ -62,8 +62,8 @@
 .tfe-wrap *{box-sizing:border-box}
 .tfe-toolbar{display:flex;gap:4px;padding:6px 8px 8px;border-bottom:1px solid var(--tfe-bdr,#2d2d2d);flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 .tfe-toolbar::-webkit-scrollbar{display:none}
-.tfe-toolbar-bottom{border-top:1px solid var(--tfe-bdr,#2d2d2d);border-bottom:none;padding:6px 8px env(safe-area-inset-bottom,0);position:fixed;bottom:0;left:0;right:0;z-index:10000;background:var(--tfe-sur,#141414);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);transform:translateY(100%);transition:transform .2s ease;box-shadow:0 -1px 12px rgba(0,0,0,.3)}
-.tfe-toolbar-bottom.tfe-tb-visible{transform:translateY(0)}
+.tfe-toolbar-bottom{border-top:1px solid var(--tfe-bdr,#2d2d2d);border-bottom:none;padding:6px 8px env(safe-area-inset-bottom,0);position:fixed;bottom:0;left:0;right:0;z-index:10000;background:var(--tfe-sur,#141414);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);opacity:0;pointer-events:none;transition:opacity .2s ease,bottom .15s ease;box-shadow:0 -1px 12px rgba(0,0,0,.3)}
+.tfe-toolbar-bottom.tfe-tb-visible{opacity:1;pointer-events:auto}
 .tfe-btn{background:var(--tfe-sur2,#1e1e1e);border:1px solid var(--tfe-bdr,#2d2d2d);border-radius:6px;color:var(--tfe-txt,#e0e0e0);font-size:13px;font-weight:600;padding:4px 9px;cursor:pointer;min-width:30px;transition:background .15s;line-height:1.4}
 .tfe-btn *{pointer-events:none}
 .tfe-btn:hover{background:var(--tfe-acc,#4f8ef7);color:#fff;border-color:var(--tfe-acc,#4f8ef7)}
@@ -74,7 +74,7 @@
 .tfe-editor h1{font-size:20px;font-weight:800;margin:8px 0 4px}
 .tfe-editor h2{font-size:17px;font-weight:700;margin:6px 0 3px;color:var(--tfe-acc,#4f8ef7)}
 .tfe-editor h3{font-size:15px;font-weight:700;margin:4px 0 2px}
-.tfe-editor p{margin:2px 0}
+.tfe-editor p{margin:2px 0;color:inherit}.tfe-editor{color:var(--tfe-txt,#e0e0e0)}
 .tfe-editor ul{padding-left:20px;margin:4px 0;list-style:disc}
 .tfe-editor ol{padding-left:20px;margin:4px 0;list-style:decimal}
 .tfe-editor li{margin:2px 0;display:list-item}
@@ -88,8 +88,8 @@
 .tfe-editor video{max-width:100%;border-radius:6px;margin:4px 0;display:block;background:#000}
 .tfe-editor iframe{max-width:100%;border-radius:6px;margin:4px 0;display:block;border:none}
 .tfe-media-modal{position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center}
-.tfe-doc-modal{position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:16px}
-.tfe-doc-box{background:var(--tfe-sur,#141414);border:1px solid var(--tfe-bdr,#2d2d2d);border-radius:14px;padding:20px;width:94vw;max-width:420px;display:flex;flex-direction:column;gap:10px}
+.tfe-doc-modal{position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:12px}
+.tfe-doc-box{background:var(--tfe-sur,#141414);border:1px solid var(--tfe-bdr,#2d2d2d);border-radius:14px;padding:20px;width:calc(100vw - 24px);max-width:420px;display:flex;flex-direction:column;gap:10px}
 .tfe-doc-title{font-size:16px;font-weight:700;color:var(--tfe-txt,#e0e0e0);display:flex;justify-content:space-between;align-items:center}
 .tfe-doc-card{background:var(--tfe-sur2,#1e1e1e);border:1px solid var(--tfe-bdr,#2d2d2d);border-radius:10px;padding:14px 16px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:14px}
 .tfe-doc-card:hover{border-color:var(--tfe-acc,#4f8ef7);background:rgba(79,142,247,.07)}
@@ -105,7 +105,7 @@
 .tfe-doc-card--pdf{border-left:3px solid #f7c94f}
 .tfe-doc-card--pdf .tfe-doc-card-badge{background:rgba(247,201,79,.15);color:#f7c94f}
 .tfe-doc-card--pdf:hover{border-color:#f7c94f;background:rgba(247,201,79,.07)}
-.tfe-media-box{background:var(--tfe-sur,#141414);border:1px solid var(--tfe-bdr,#2d2d2d);border-radius:14px;padding:16px;width:94vw;max-width:600px;display:flex;flex-direction:column;gap:10px}
+.tfe-media-box{background:var(--tfe-sur,#141414);border:1px solid var(--tfe-bdr,#2d2d2d);border-radius:14px;padding:16px;width:calc(100vw - 24px);max-width:600px;display:flex;flex-direction:column;gap:10px}
 .tfe-media-title{font-size:15px;font-weight:700;color:var(--tfe-txt,#e0e0e0);margin-bottom:14px;display:flex;justify-content:space-between;align-items:center}
 .tfe-media-section{margin-bottom:0}
 .tfe-media-card{background:var(--tfe-sur2,#1e1e1e);border:1px solid var(--tfe-bdr,#2d2d2d);border-radius:10px;padding:14px 16px}
@@ -141,30 +141,25 @@
 .tfe-media-file-empty{font-size:13px;color:var(--tfe-mut,#888);text-align:center;padding:16px;border:1px dashed var(--tfe-bdr,#2d2d2d);border-radius:8px}
 .tfe-media-file-insert{background:var(--tfe-acc,#4f8ef7);border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:700;padding:9px 18px;cursor:pointer;margin-top:10px;width:100%;opacity:.5;pointer-events:none;transition:opacity .2s}
 .tfe-media-file-insert.tfe-file-insert-ready{opacity:1;pointer-events:auto}
+.tfe-media-label-input{width:100%;background:var(--tfe-sur2,#1e1e1e);border:1px solid var(--tfe-bdr,#2d2d2d);border-radius:7px;color:var(--tfe-txt,#e0e0e0);padding:7px 10px;font-size:13px;outline:none;margin-bottom:6px;transition:border-color .15s}
+.tfe-media-label-input:focus{border-color:var(--tfe-acc,#4f8ef7)}
+.tfe-media-label-input::placeholder{color:var(--tfe-mut,#888)}
+.tfe-media-label-row{display:flex;flex-direction:column;gap:4px;margin-top:6px}
+.tfe-media-label-row label{font-size:11px;color:var(--tfe-mut,#888);font-weight:600;letter-spacing:.03em}
+.tfe-media-label-input{width:100%;background:var(--tfe-sur2,#1e1e1e);border:1.5px solid var(--tfe-bdr,#2d2d2d);border-radius:7px;color:var(--tfe-txt,#e0e0e0);padding:7px 10px;font-size:13px;outline:none;transition:border-color .15s}
+.tfe-media-label-input:focus{border-color:var(--tfe-acc,#4f8ef7)}
+.tfe-media-label-input.tfe-label-error{border-color:#e24b4a;animation:tfe-shake .25s}
+@keyframes tfe-shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+/* Spinner */
+.tfe-spinner-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:18px 0;min-height:60px}
+.tfe-spinner{width:28px;height:28px;border:3px solid var(--tfe-bdr,#2d2d2d);border-top-color:var(--tfe-acc,#4f8ef7);border-radius:50%;animation:tfe-spin .7s linear infinite;flex-shrink:0}
+@keyframes tfe-spin{to{transform:rotate(360deg)}}
+.tfe-spinner-msg{font-size:12px;color:var(--tfe-mut,#888);text-align:center;min-height:16px;transition:opacity .2s}
+.tfe-spinner-bar-wrap{width:100%;height:4px;background:var(--tfe-bdr,#2d2d2d);border-radius:2px;overflow:hidden;margin-top:4px}
+.tfe-spinner-bar{height:100%;background:var(--tfe-acc,#4f8ef7);border-radius:2px;width:0%;transition:width .3s ease}
 .tfe-media-upload-progress{height:3px;background:var(--tfe-bdr,#2d2d2d);border-radius:2px;margin-top:8px;display:none}
 .tfe-media-upload-progress-bar{height:100%;background:var(--tfe-acc,#4f8ef7);border-radius:2px;width:0;transition:width .3s}
 .tfe-media-card--files{border-left:3px solid #9c27b0}
-.tfe-raw-modal{position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;padding:12px}
-.tfe-raw-box{background:var(--tfe-sur,#141414);border:1px solid var(--tfe-bdr,#2d2d2d);border-radius:12px;padding:20px;width:100%;max-width:440px;display:flex;flex-direction:column;gap:12px}
-.tfe-raw-warn{background:rgba(247,201,79,.08);border:1px solid rgba(247,201,79,.3);border-radius:8px;padding:12px;font-size:13px;color:var(--tfe-txt,#e0e0e0);line-height:1.6}
-.tfe-raw-warn-title{font-size:14px;font-weight:700;color:#f7c94f;margin-bottom:6px;display:flex;align-items:center;gap:6px}
-.tfe-raw-confirm{display:flex;flex-direction:column;gap:6px}
-.tfe-raw-confirm label{font-size:12px;color:var(--tfe-mut,#888)}
-.tfe-raw-confirm input{background:var(--tfe-sur2,#1e1e1e);border:1px solid var(--tfe-bdr,#2d2d2d);border-radius:6px;color:var(--tfe-txt,#e0e0e0);padding:8px 10px;font-size:13px;outline:none;width:100%}
-.tfe-raw-confirm input:focus{border-color:var(--tfe-acc,#4f8ef7)}
-.tfe-raw-confirm input.tfe-raw-confirm--ok{border-color:#4caf50;background:rgba(76,175,80,.08)}
-.tfe-raw-btns{display:flex;gap:8px}
-.tfe-raw-btn-skip{flex:1;background:var(--tfe-acc,#4f8ef7);border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:700;padding:10px;cursor:pointer}
-.tfe-raw-btn-ro{flex:1;background:var(--tfe-sur2,#1e1e1e);border:1px solid var(--tfe-bdr,#2d2d2d);border-radius:8px;color:var(--tfe-txt,#e0e0e0);font-size:13px;font-weight:600;padding:10px;cursor:pointer}
-.tfe-raw-btn-edit{flex:1;background:rgba(226,75,74,.1);border:1px solid rgba(226,75,74,.4);border-radius:8px;color:#e24b4a;font-size:13px;font-weight:700;padding:10px;cursor:pointer;opacity:.4;pointer-events:none;transition:all .2s}
-.tfe-raw-btn-edit.tfe-raw-btn-edit--ready{opacity:1;pointer-events:auto;background:rgba(226,75,74,.15)}
-.tfe-raw-btn-edit.tfe-raw-btn-edit--ready:hover{background:#e24b4a;color:#fff}
-.tfe-raw-textarea{width:100%;min-height:300px;max-height:55vh;background:var(--tfe-sur2,#1e1e1e);border:1px solid var(--tfe-bdr,#2d2d2d);border-radius:6px;color:var(--tfe-txt,#e0e0e0);padding:12px;font-size:12px;font-family:monospace;line-height:1.6;outline:none;resize:vertical;tab-size:2}
-.tfe-raw-textarea:focus{border-color:var(--tfe-acc,#4f8ef7)}
-.tfe-raw-footer{display:flex;gap:8px;justify-content:flex-end}
-.tfe-raw-save{background:#4caf50;border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:700;padding:9px 18px;cursor:pointer}
-.tfe-raw-save:hover{background:#43a047}
-.tfe-raw-cancel{background:var(--tfe-sur2,#1e1e1e);border:1px solid var(--tfe-bdr,#2d2d2d);border-radius:8px;color:var(--tfe-txt,#e0e0e0);font-size:13px;padding:9px 14px;cursor:pointer}
 .tfe-preview-card{display:block;border:1px solid var(--tfe-bdr,#2d2d2d);border-radius:8px;overflow:hidden;margin:6px 0;background:var(--tfe-sur,#141414);cursor:pointer;text-decoration:none;max-width:100%}
 .tfe-preview-card img{width:100%;max-height:160px;object-fit:cover;display:block}
 .tfe-preview-body{padding:8px 10px}
@@ -180,9 +175,9 @@
 .tfe-touch .tfe-block-wrap .tfe-del-btn{opacity:1;visibility:visible;pointer-events:auto}
 .tfe-editor{padding-left:26px !important}
 .tfe-line-del{position:absolute;left:-22px;top:50%;transform:translateY(-50%);width:16px;height:16px;background:rgba(226,75,74,.1);border:1px solid rgba(226,75,74,.3);border-radius:50%;color:#e24b4a;font-size:10px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;z-index:9;opacity:0;visibility:hidden;transition:opacity .15s,visibility .15s,background .15s;pointer-events:none}
-.tfe-editor p:hover>.tfe-line-del,.tfe-editor h1:hover>.tfe-line-del,.tfe-editor h2:hover>.tfe-line-del,.tfe-editor h3:hover>.tfe-line-del,.tfe-editor li:hover>.tfe-line-del,.tfe-editor blockquote:hover>.tfe-line-del{opacity:1;visibility:visible;pointer-events:auto}
+.tfe-editor h1:hover>.tfe-line-del,.tfe-editor h2:hover>.tfe-line-del,.tfe-editor h3:hover>.tfe-line-del,.tfe-editor h4:hover>.tfe-line-del,.tfe-editor ul:hover>.tfe-line-del,.tfe-editor ol:hover>.tfe-line-del,.tfe-editor blockquote:hover>.tfe-line-del{opacity:1;visibility:visible;pointer-events:auto}
 .tfe-line-del:hover{background:rgba(226,75,74,.35)}
-.tfe-touch .tfe-editor p>.tfe-line-del,.tfe-touch .tfe-editor h1>.tfe-line-del,.tfe-touch .tfe-editor h2>.tfe-line-del,.tfe-touch .tfe-editor h3>.tfe-line-del,.tfe-touch .tfe-editor li>.tfe-line-del,.tfe-touch .tfe-editor blockquote>.tfe-line-del{opacity:1;visibility:visible;pointer-events:auto}
+.tfe-touch .tfe-editor h1>.tfe-line-del,.tfe-touch .tfe-editor h2>.tfe-line-del,.tfe-touch .tfe-editor h3>.tfe-line-del,.tfe-touch .tfe-editor h4>.tfe-line-del,.tfe-touch .tfe-editor ul>.tfe-line-del,.tfe-touch .tfe-editor ol>.tfe-line-del,.tfe-touch .tfe-editor blockquote>.tfe-line-del{opacity:1;visibility:visible;pointer-events:auto}
 .tfe-editor p,.tfe-editor h1,.tfe-editor h2,.tfe-editor h3,.tfe-editor h4,.tfe-editor li,.tfe-editor blockquote{position:relative}
 #tfe-sel-del{position:fixed;z-index:99999;background:#e24b4a;border:none;border-radius:6px;color:#fff;font-size:12px;font-weight:700;padding:4px 10px;cursor:pointer;display:none;box-shadow:0 2px 8px rgba(0,0,0,.4);pointer-events:auto}
 #tfe-sel-del:hover{background:#c0392b}
@@ -251,7 +246,7 @@
     // Build wrapper
     const wrap = document.createElement('div');
     wrap.className = 'tfe-wrap' + (isDark ? '' : ' tfe-light');
-    wrap.style.cssText = 'width:100%';
+    wrap.style.cssText = 'width:' + (this.opts.width || '100%');
 
     // ── Toolbar ──────────────────────────────────────────────────────────────
     if (this.opts.showToolbar) {
@@ -262,7 +257,8 @@
         italic:     '<i>I</i>',
         heading:    'H',
         link:       '🔗',
-        image:      '📎',
+        image:      '📎', // legacy
+        importMedia:'📎',
         importMd:   '📄',
         importHtml: '🌐',
         importDoc:  '📄',
@@ -270,16 +266,14 @@
         outdent:    '←',
         markStart:  '📍',
         deleteSelection: '🗑',
-        rawHtml: '&lt;/&gt;',
       };
       const TITLES = {
         bold:'Bold',italic:'Italic',heading:'Heading',
-        link:'Insert link',image:'Insert media (image/video/embed)',
+        link:'Insert link',image:'Insert media',importMedia:'Insert media',
         importMd:'Import .md file',importHtml:'Import HTML file (no JS)',importDoc:'Import document (.md / .html)',
         indent:'Indent (Tab)',outdent:'Outdent (Shift+Tab)',
         markStart:'Mark selection start',
-        deleteSelection:'Delete selection / marked range',
-        rawHtml:'Raw HTML editor',
+        deleteSelection:'Delete forward / selection / marked range',
       };
       this.opts.toolbar.forEach(name => {
         const btn = document.createElement('button');
@@ -377,8 +371,9 @@
         }
         break;
       }
-      case 'link':       this._insertLink(); break;
-      case 'image':      this._openMediaModal(); break;
+      case 'link':       this._openMediaModal(); break;
+      case 'image':      this._openMediaModal(); break; // legacy alias
+      case 'importMedia':this._openMediaModal(); break;
       case 'importMd':   this._file_md.click(); break;
       case 'importHtml': this._file_html.click(); break;
       case 'importDoc':  this._openImportDocModal(); break;
@@ -386,7 +381,6 @@
       case 'outdent':        this._indent(false); break;
       case 'markStart':      this._markSelectionStart(); break;
       case 'deleteSelection':this._deleteSelection(); break;
-      case 'rawHtml':        this._openRawHtmlEditor(); break;
     }
     this._updateSize();
   };
@@ -925,9 +919,17 @@
       return;
     }
 
-    // Case 3: Nothing selected or marked
-    // (old Case 2 fallback kept for compatibility)
-    // Start marker set → delete from marker to current cursor
+    // Case 3: Collapsed cursor + no marker → forward delete (like keyboard Delete key)
+    if (sel && sel.isCollapsed && this._ed.contains(sel.anchorNode)) {
+      this._forwardDelete();
+      return;
+    }
+
+    // Case 4: Nothing selected/focused — show hint
+    this._showDeleteHint();
+    return;
+
+    // Legacy fallback (kept for compatibility — unreachable)
     if (this._startMarker) {
       if (!sel || !sel.rangeCount) return;
       var curRange = sel.getRangeAt(0);
@@ -1091,6 +1093,109 @@
     return r;
   };
 
+  // ── Forward delete (like keyboard Delete key) ────────────────────────────
+  // Deletes one character/node forward from cursor, handling tag boundaries
+  TinyEditor.prototype._forwardDelete = function () {
+    var self = this;
+    var sel = window.getSelection();
+    if (!sel || !sel.rangeCount || !this._ed.contains(sel.anchorNode)) return false;
+
+    var range = sel.getRangeAt(0);
+    if (!range.collapsed) return false; // has selection — handled by caller
+
+    var node   = range.startContainer;
+    var offset = range.startOffset;
+
+    // ── Case A: Inside a text node ──────────────────────────────────────────
+    if (node.nodeType === 3) {
+      if (offset < node.length) {
+        // Simple: delete next char in text node
+        var r = document.createRange();
+        r.setStart(node, offset);
+        r.setEnd(node, offset + 1);
+        r.deleteContents();
+        this._updateSize();
+        return true;
+      }
+      // At end of text node — fall through to element-level logic
+      node = node.parentElement;
+    }
+
+    // ── Case B: At end of a block — merge with next block ──────────────────
+    var block = (node.nodeType === 1 ? node : node.parentElement)
+                  .closest('p,h1,h2,h3,h4,li,blockquote');
+    if (!block) return false;
+
+    // Find next sibling block in the editor
+    var nextBlock = null;
+    var cur = block;
+    while (cur && !nextBlock) {
+      // Try next sibling
+      var sib = cur.nextElementSibling;
+      while (sib) {
+        // Skip UI-only elements
+        if (sib.classList && (sib.classList.contains('tfe-block-wrap') ||
+            sib.classList.contains('tfe-md-group-del') ||
+            sib.classList.contains('tfe-line-del'))) {
+          sib = sib.nextElementSibling; continue;
+        }
+        var tag = sib.tagName ? sib.tagName.toLowerCase() : '';
+        if (['p','h1','h2','h3','h4','li','blockquote'].includes(tag)) {
+          nextBlock = sib; break;
+        }
+        // Block-wrap (code, table, image): delete the whole wrap
+        if (sib.classList && sib.classList.contains('tfe-block-wrap')) {
+          sib.remove(); self._updateSize(); return true;
+        }
+        sib = sib.nextElementSibling;
+      }
+      if (!nextBlock) cur = cur.parentElement;
+      if (cur === self._ed || !cur) break;
+    }
+
+    if (!nextBlock) return false;
+
+    // Check cursor is actually at the END of its block (skip tfe-line-del)
+    var blockText = block.textContent.replace(/\s/g,'');
+    var selText   = '';
+    // Get text from cursor to end of block
+    var endRange = document.createRange();
+    endRange.setStart(range.startContainer, range.startOffset);
+    endRange.setEnd(block, block.childNodes.length);
+    selText = endRange.toString().replace(/\s/g,'');
+
+    if (selText.length > 0) {
+      // Cursor is not at end — delete one char forward within the block
+      // Walk forward to find next text position
+      var walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT, null);
+      var tn = null;
+      // Find the text node containing the cursor
+      while ((tn = walker.nextNode())) {
+        if (tn === range.startContainer || block.contains(tn)) {
+          if (tn === range.startContainer && offset < tn.length) {
+            var r2 = document.createRange();
+            r2.setStart(tn, offset); r2.setEnd(tn, offset+1);
+            r2.deleteContents();
+            self._updateSize(); return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    // Cursor at end of block — merge nextBlock content into current block
+    // Skip line-del button of nextBlock when moving content
+    Array.from(nextBlock.childNodes).forEach(function(child) {
+      if (child.classList && child.classList.contains('tfe-line-del')) return;
+      block.appendChild(child.cloneNode(true));
+    });
+    nextBlock.remove();
+
+    // Position cursor at the join point (end of original block content)
+    self._updateSize();
+    return true;
+  };
+
   TinyEditor.prototype._showDeleteHint = function () {
     if (!this._sizeEl) return;
     var hint = this._sizeEl;
@@ -1124,328 +1229,19 @@
   // ── Selection watcher — activates 🗑 when text selected ─────────────────────
   TinyEditor.prototype._initSelectionWatcher = function () {
     var self = this;
-    document.addEventListener('selectionchange', function () {
+    // Use a named function so it can be cleanly removed when editor is destroyed
+    self._selWatcher = function () {
       // When marker is active, _highlightMarkerRange handles selection
-      // — don't interfere here
       if (self._startMarker) return;
-
+      // Only respond to selections inside THIS editor instance
       var sel = window.getSelection();
-      if (!sel || sel.isCollapsed || !self._ed.contains(sel.anchorNode)) {
+      if (!sel || sel.isCollapsed || !self._ed || !self._ed.contains(sel.anchorNode)) {
         self._updateDeleteBtn(false);
         return;
       }
-      // Manual text selected in editor → activate 🗑
       self._updateDeleteBtn(true);
-    });
-  };
-
-  // ── Raw HTML Editor ──────────────────────────────────────────────────────────
-  TinyEditor.prototype._openRawHtmlEditor = function () {
-    var self = this;
-    var existing = document.getElementById('tfe-raw-modal');
-    if (existing) existing.remove();
-
-    var modal = document.createElement('div');
-    modal.id = 'tfe-raw-modal';
-    modal.className = 'tfe-raw-modal';
-
-    // Phase 1: Warning + confirmation
-    modal.innerHTML = '<div class="tfe-raw-box" id="tfe-raw-box">'
-      + '<div class="tfe-raw-warn">'
-      +   '<div class="tfe-raw-warn-title">⚠️ Raw HTML Mode Warning</div>'
-      +   'Editing raw HTML directly can <strong>corrupt your document</strong> if tags are not '
-      +   'opened and closed correctly. Broken HTML may cause the editor to malfunction.<br><br>'
-      +   'It is <strong>recommended to skip</strong> this and use the toolbar instead. '
-      +   'If you still want to edit raw HTML, type exactly:<br><br>'
-      +   '<code style="background:var(--tfe-sur2,#1e1e1e);padding:2px 6px;border-radius:4px;color:var(--tfe-acc,#4f8ef7);font-size:12px">'
-      +   'i want raw html editing</code>'
-      + '</div>'
-      + '<div class="tfe-raw-confirm">'
-      +   '<label>Type the confirmation phrase to unlock Edit mode:</label>'
-      +   '<input id="tfe-raw-phrase" placeholder="i want raw html editing" autocomplete="off" spellcheck="false">'
-      + '</div>'
-      + '<div class="tfe-raw-btns">'
-      +   '<button class="tfe-raw-btn-skip" id="tfe-raw-skip">✓ Skip (Recommended)</button>'
-      +   '<button class="tfe-raw-btn-ro" id="tfe-raw-ro">👁 Read Only</button>'
-      +   '<button class="tfe-raw-btn-edit" id="tfe-raw-edit">✎ Edit</button>'
-      + '</div>'
-      + '</div>';
-
-    document.body.appendChild(modal);
-
-    var phraseInput = document.getElementById('tfe-raw-phrase');
-    var editBtn     = document.getElementById('tfe-raw-edit');
-    var PHRASE      = 'i want raw html editing';
-
-    // Live check phrase
-    phraseInput.addEventListener('input', function() {
-      var match = phraseInput.value.trim().toLowerCase() === PHRASE;
-      editBtn.classList.toggle('tfe-raw-btn-edit--ready', match);
-      phraseInput.classList.toggle('tfe-raw-confirm--ok', match);
-    });
-
-    // Skip — just close
-    document.getElementById('tfe-raw-skip').onclick = function() {
-      modal.remove();
     };
-
-    // Read only — show HTML in textarea (non-editable)
-    document.getElementById('tfe-raw-ro').onclick = function() {
-      self._showRawHtmlView(modal, false);
-    };
-
-    // Edit — show HTML in editable textarea
-    editBtn.onclick = function() {
-      if (!editBtn.classList.contains('tfe-raw-btn-edit--ready')) return;
-      self._showRawHtmlView(modal, true);
-    };
-
-    // Close on backdrop
-    modal.onclick = function(e) {
-      if (e.target === modal) modal.remove();
-    };
-
-    // Focus phrase input
-    setTimeout(function() { phraseInput.focus(); }, 50);
-  };
-
-  TinyEditor.prototype._showRawHtmlView = function (modal, editable) {
-    var self = this;
-    var currentHtml = this._ed.innerHTML;
-
-    // Pretty print HTML
-    var pretty = this._prettyHtml(currentHtml);
-
-    var box = document.getElementById('tfe-raw-box');
-    if (!box) return;
-
-    box.innerHTML = '<div style="font-size:13px;font-weight:700;color:var(--tfe-txt,#e0e0e0);margin-bottom:4px">'
-      + (editable ? '✎ Raw HTML — Edit Mode' : '👁 Raw HTML — Read Only') + '</div>'
-      + (editable ? '<div style="font-size:11px;color:#f7c94f;margin-bottom:8px">⚠️ Unclosed or malformed tags will corrupt the document.</div>' : '')
-      + '<textarea id="tfe-raw-ta" class="tfe-raw-textarea"'
-      + (editable ? '' : ' readonly') + '>' + _esc(pretty) + '</textarea>'
-      + '<div class="tfe-raw-footer">'
-      + (editable
-          ? '<button class="tfe-raw-save" id="tfe-raw-apply">✓ Apply HTML</button>'
-          : '')
-      + '<button class="tfe-raw-cancel" id="tfe-raw-close">'
-      + (editable ? '✕ Cancel' : '✕ Close') + '</button>'
-      + '</div>';
-
-    // Close
-    document.getElementById('tfe-raw-close').onclick = function() { modal.remove(); };
-
-    // Apply (edit mode only)
-    if (editable) {
-      document.getElementById('tfe-raw-apply').onclick = function() {
-        var rawHtml = document.getElementById('tfe-raw-ta').value;
-
-        // ── Validate HTML before applying ─────────────────────────────────
-        var errors = self._validateHtml(rawHtml);
-        if (errors.length > 0) {
-          self._showHtmlErrors(errors);
-          return; // block apply until fixed
-        }
-
-        // ── Sanitize: remove scripts and event handlers ────────────────────
-        rawHtml = rawHtml.replace(/<script[\s\S]*?<\/script>/gi, '');
-        rawHtml = rawHtml.replace(/\s+on\w+\s*=\s*"[^"]*"/gi, '');
-        rawHtml = rawHtml.replace(/\s+on\w+\s*=\s*'[^']*'/gi, '');
-        self._ed.innerHTML = rawHtml;
-        self._updateSize();
-        self._syncLineDelButtons();
-        modal.remove();
-      };
-
-      // Tab key inserts 2 spaces in textarea
-      document.getElementById('tfe-raw-ta').addEventListener('keydown', function(e) {
-        if (e.key === 'Tab') {
-          e.preventDefault();
-          var ta = e.target;
-          var start = ta.selectionStart;
-          var end = ta.selectionEnd;
-          ta.value = ta.value.slice(0,start) + '  ' + ta.value.slice(end);
-          ta.selectionStart = ta.selectionEnd = start + 2;
-        }
-      });
-    }
-  };
-
-  // ── HTML Validator ───────────────────────────────────────────────────────────
-  TinyEditor.prototype._validateHtml = function (html) {
-    var errors = [];
-
-    // Tags that don't need closing
-    var VOID = ['area','base','br','col','embed','hr','img','input','link',
-                'meta','param','source','track','wbr'];
-    // Tags we validate (block + inline meaningful ones)
-    var VALIDATE = ['div','p','h1','h2','h3','h4','h5','h6','ul','ol','li',
-                    'table','thead','tbody','tfoot','tr','th','td','blockquote',
-                    'pre','code','strong','b','em','i','u','s','del','a',
-                    'figure','figcaption','section','article','aside',
-                    'header','footer','nav','main','span'];
-
-    var stack = [];     // open tag stack: [{tag, line, col}]
-    var lineNum = 1;
-
-    // Tokenise — find all tags
-    var tagRe = /<(\/?)([a-zA-Z][a-zA-Z0-9]*)([^>]*)>/g;
-    var m;
-
-    // Count lines up to a position
-    function lineAt(pos) {
-      return html.slice(0, pos).split('\n').length;
-    }
-
-    while ((m = tagRe.exec(html)) !== null) {
-      var closing  = m[1] === '/';
-      var tag      = m[2].toLowerCase();
-      var attrs    = m[3];
-      var pos      = m.index;
-      var isSelf   = attrs.trim().endsWith('/') || VOID.indexOf(tag) !== -1;
-
-      if (VALIDATE.indexOf(tag) === -1) continue; // skip unknown/irrelevant
-      if (isSelf || VOID.indexOf(tag) !== -1) continue; // void / self-closing
-
-      if (!closing) {
-        // Opening tag — push to stack
-        stack.push({ tag: tag, line: lineAt(pos), pos: pos });
-      } else {
-        // Closing tag — check top of stack
-        if (stack.length === 0) {
-          errors.push({
-            type: 'extra-close',
-            msg: 'Unexpected closing tag </' + tag + '> — no matching open tag',
-            line: lineAt(pos),
-          });
-        } else {
-          var top = stack[stack.length - 1];
-          if (top.tag === tag) {
-            stack.pop(); // matched
-          } else {
-            // Wrong close — check if it matches something deeper
-            var found = -1;
-            for (var i = stack.length - 1; i >= 0; i--) {
-              if (stack[i].tag === tag) { found = i; break; }
-            }
-            if (found >= 0) {
-              // Tags in between are not closed
-              var unclosed = stack.slice(found + 1).reverse();
-              unclosed.forEach(function(u) {
-                errors.push({
-                  type: 'unclosed',
-                  msg: 'Tag <' + u.tag + '> opened on line ' + u.line + ' is not closed before </' + tag + '>',
-                  line: lineAt(pos),
-                });
-              });
-              stack.splice(found); // pop up to found
-            } else {
-              errors.push({
-                type: 'mismatch',
-                msg: 'Mismatched tag: </' + tag + '> but last open tag was <' + top.tag + '> (line ' + top.line + ')',
-                line: lineAt(pos),
-              });
-            }
-          }
-        }
-      }
-    }
-
-    // Any remaining open tags are unclosed
-    stack.forEach(function(u) {
-      errors.push({
-        type: 'unclosed',
-        msg: 'Tag <' + u.tag + '> opened on line ' + u.line + ' is never closed',
-        line: u.line,
-      });
-    });
-
-    // Check unmatched quotes in tag attributes (simple check)
-    var attrRe = /<[a-zA-Z][^>]*>/g;
-    while ((m = attrRe.exec(html)) !== null) {
-      var tagStr = m[0];
-      var dq = (tagStr.match(/"/g) || []).length;
-      var sq = (tagStr.match(/'/g) || []).length;
-      if (dq % 2 !== 0) {
-        errors.push({
-          type: 'quote',
-          msg: 'Unmatched double quote in tag: ' + tagStr.slice(0, 40),
-          line: lineAt(m.index),
-        });
-      }
-    }
-
-    return errors;
-  };
-
-  TinyEditor.prototype._showHtmlErrors = function (errors) {
-    // Show error list inside the modal, above the textarea
-    var existing = document.getElementById('tfe-raw-errors');
-    if (existing) existing.remove();
-
-    var box = document.createElement('div');
-    box.id = 'tfe-raw-errors';
-    box.style.cssText = 'background:rgba(226,75,74,.1);border:1px solid rgba(226,75,74,.4);'
-      + 'border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:var(--tfe-txt,#e0e0e0)';
-
-    var title = document.createElement('div');
-    title.style.cssText = 'font-weight:700;color:#e24b4a;margin-bottom:6px;font-size:13px';
-    title.textContent = '❌ ' + errors.length + ' HTML error' + (errors.length>1?'s':'') + ' — fix before applying:';
-    box.appendChild(title);
-
-    errors.slice(0, 8).forEach(function(err) { // show max 8
-      var row = document.createElement('div');
-      row.style.cssText = 'padding:3px 0;border-bottom:1px solid rgba(226,75,74,.2);line-height:1.5';
-      row.innerHTML = '<span style="color:#f7c94f;font-size:11px">Line ' + err.line + '</span>'
-        + ' — ' + _esc(err.msg);
-      box.appendChild(row);
-    });
-
-    if (errors.length > 8) {
-      var more = document.createElement('div');
-      more.style.cssText = 'padding-top:4px;color:var(--tfe-mut,#888);font-size:11px';
-      more.textContent = '… and ' + (errors.length - 8) + ' more errors';
-      box.appendChild(more);
-    }
-
-    // Insert before textarea
-    var ta = document.getElementById('tfe-raw-ta');
-    if (ta && ta.parentNode) ta.parentNode.insertBefore(box, ta);
-
-    // Scroll box into view
-    box.scrollIntoView({behavior:'smooth', block:'nearest'});
-  };
-
-  // ── Pretty print HTML ─────────────────────────────────────────────────────
-  TinyEditor.prototype._prettyHtml = function (html) {
-    var INLINE = ['strong','b','em','i','u','s','del','code','mark','sub','sup','span','a','br'];
-    var indent = 0;
-    var result = '';
-    // Simple tokenizer
-    var tokens = html.match(/<\/?[a-z][^>]*>|[^<]+/gi) || [];
-    tokens.forEach(function(tok) {
-      var trimmed = tok.trim();
-      if (!trimmed) return;
-      if (trimmed.startsWith('</')) {
-        // Closing tag
-        var tag = trimmed.match(/<\/([a-z][a-z0-9]*)/i);
-        if (tag && INLINE.indexOf(tag[1].toLowerCase()) === -1) indent = Math.max(0, indent-1);
-        var closingIsInline = INLINE.indexOf((tag&&tag[1]||'').toLowerCase()) !== -1;
-        result += (closingIsInline ? '' : ('\n' + '  '.repeat(indent))) + trimmed;
-      } else if (trimmed.startsWith('<')) {
-        // Opening tag
-        var tag2 = trimmed.match(/<([a-z][a-z0-9]*)/i);
-        var tagName = (tag2 && tag2[1]||'').toLowerCase();
-        var isInline = INLINE.indexOf(tagName) !== -1;
-        var selfClose = trimmed.endsWith('/>') || ['br','hr','img','input'].indexOf(tagName) !== -1;
-        result += (isInline ? '' : ('\n' + '  '.repeat(indent))) + trimmed;
-        if (!isInline && !selfClose) indent++;
-      } else {
-        // Text node
-        result += trimmed;
-      }
-    });
-    return result.trim();
+    document.addEventListener('selectionchange', self._selWatcher);
   };
 
   // ── Mobile keyboard toolbar fix ──────────────────────────────────────────────
@@ -1460,9 +1256,12 @@
     var isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
     if (!isTouch) return;
 
-    // Move toolbar to document.body as a fixed bottom bar
+    // Hide toolbar if showToolbar is false or editor is readonly
+    if (!self.opts.showToolbar) return;
+
+    // Keep toolbar INSIDE the wrap — just add fixed positioning via CSS class
+    // This preserves DOM isolation — toolbar never leaves the editor's subtree
     tb.classList.add('tfe-toolbar-bottom');
-    document.body.appendChild(tb);
     this._tb = tb;
 
     // Always show toolbar immediately — don't wait for focus
@@ -1501,7 +1300,9 @@
         window.visualViewport.removeEventListener('resize', self._vvListener);
         window.visualViewport.removeEventListener('scroll', self._vvListener);
       }
-      if (tb.parentNode) tb.parentNode.removeChild(tb);
+      // Toolbar stays in wrap DOM — just hide it
+      tb.classList.remove('tfe-tb-visible');
+      tb.classList.remove('tfe-toolbar-bottom');
     };
   };
 
@@ -1520,13 +1321,14 @@
       }
       btn.style.display = 'none';
     });
-    document.body.appendChild(btn);
+    self._wrap.appendChild(btn); // stay in wrap, not body
     this._selDelBtn = btn;
 
     // Show/hide on selection change
     document.addEventListener('selectionchange', function() {
+      // Only respond to selections inside THIS editor
       var sel = window.getSelection();
-      if (!sel || sel.isCollapsed || !self._ed.contains(sel.anchorNode)) {
+      if (!sel || sel.isCollapsed || !self._ed || !self._ed.contains(sel.anchorNode)) {
         btn.style.display = 'none';
         return;
       }
@@ -1548,6 +1350,8 @@
   // ── Line-level delete buttons (add to every editable block) ───────────────
   TinyEditor.prototype._addLineDelButtons = function () {
     var self = this;
+    // Don't add delete buttons if toolbar is hidden (readonly/display mode)
+    if (!self.opts.showToolbar) return;
     // Store observer so it can be disconnected if needed
     if (this._lineDelObserver) this._lineDelObserver.disconnect();
     this._lineDelObserver = new MutationObserver(function() { self._syncLineDelButtons(); });
@@ -1557,11 +1361,33 @@
 
   TinyEditor.prototype._syncLineDelButtons = function () {
     var self = this;
-    var blocks = this._ed.querySelectorAll('p,h1,h2,h3,h4,li,blockquote');
-    blocks.forEach(function(block) {
-      // Skip blocks inside tfe-block-wrap (have own del button) but allow inside tfe-md-group
-      if (block.closest('.tfe-block-wrap')) return;
-      if (block.querySelector(':scope > .tfe-line-del')) return; // already added
+
+    // ── Two-level delete structure ─────────────────────────────────────────
+    // Level 1: the md-group itself has a group-del button (already added by _wrapMdGroup)
+    // Level 2: top-level "section" blocks inside md-group get a ✕ del button
+    //   → ul, ol (the whole list), blockquote, pre/code (via tfe-block-wrap), table (via tfe-block-wrap)
+    //   → headings (h1-h4) — these are section dividers, worth individual delete
+    //   → NOT: plain p, NOT: individual li (delete the whole ul instead)
+    //   → NOT: anything outside a md-group
+    // tfe-block-wrap blocks (pre, table, img, video) already have their own ✕ — skip those
+
+    // Only target headings, ul, ol, blockquote directly inside a .tfe-md-group
+    var groups = this._ed.querySelectorAll('.tfe-md-group');
+    groups.forEach(function(group) {
+      Array.from(group.children).forEach(function(block) {
+        // Skip the group-del button itself
+        if (block.classList.contains('tfe-md-group-del')) return;
+        // Skip tfe-block-wrap — they have own ✕
+        if (block.classList.contains('tfe-block-wrap')) return;
+        // Skip empty blocks
+        if (!block.textContent.replace(/\s/g, '')) return;
+        // Only add to headings, ul, ol, blockquote — NOT plain p
+        var tag = block.tagName ? block.tagName.toLowerCase() : '';
+        var isSection = (tag === 'h1' || tag === 'h2' || tag === 'h3' || tag === 'h4' ||
+                         tag === 'ul' || tag === 'ol' || tag === 'blockquote');
+        if (!isSection) return;
+        // Already has one
+        if (block.querySelector(':scope > .tfe-line-del')) return;
       var btn = document.createElement('button');
       btn.className = 'tfe-line-del';
       btn.title = 'Delete line';
@@ -1583,7 +1409,8 @@
         e.stopPropagation();
       });
       block.insertBefore(btn, block.firstChild);
-    });
+      });  // end Array.from(group.children)
+    });    // end groups.forEach
   };
 
   // ── Wrap MD import in deletable group ─────────────────────────────────────
@@ -2016,19 +1843,43 @@
     if (!src || wrap.getAttribute('data-pdf-loaded')) return;
     wrap.setAttribute('data-pdf-loaded', '1');
 
+    // Show inline spinner while PDF.js loads + document parses
+    var spinId = wrap.id + '-pdfload';
+    var spinEl = document.createElement('div');
+    spinEl.id = spinId + '-spin';
+    spinEl.className = 'tfe-spinner-wrap';
+    spinEl.style.minHeight = '80px';
+    spinEl.innerHTML =
+      '<div class="tfe-spinner"></div>' +
+      '<div class="tfe-spinner-msg" id="' + spinId + '-msg">Loading PDF viewer…</div>' +
+      '<div class="tfe-spinner-bar-wrap"><div class="tfe-spinner-bar" id="' + spinId + '-bar"></div></div>';
+    wrap.appendChild(spinEl);
+
+    var setMsg = function(msg, pct) {
+      var m = document.getElementById(spinId + '-msg'); if (m) m.textContent = msg;
+      if (typeof pct === 'number') {
+        var b = document.getElementById(spinId + '-bar');
+        if (b) b.style.width = Math.round(pct * 100) + '%';
+      }
+    };
+
     self._loadPdfJs(function(err, pdfjsLib) {
       if (err) {
+        spinEl.remove();
         wrap.innerHTML = '<div class="tfe-pdf-error">&#9888; Could not load PDF.js<br><small>' + err.message + '</small></div>';
         return;
       }
 
+      setMsg('Loading document…', 0.2);
       var loadingTask = pdfjsLib.getDocument(src);
       loadingTask.promise.then(function(pdf) {
+        setMsg('Rendering…', 0.6);
         var totalPages = pdf.numPages;
         var currentPage = 1;
         var label = src.split('/').pop().split('?')[0] || 'document.pdf';
 
         // Build UI
+        spinEl.remove();
         wrap.innerHTML =
           '<div class="tfe-pdf-canvas-wrap" id="' + wrap.id + '-pages"></div>'
           + '<div class="tfe-pdf-bar">'
@@ -2047,6 +1898,8 @@
           prevBtn.disabled = num <= 1;
           nextBtn.disabled = num >= totalPages;
           infoEl.textContent = label + '  |  Page ' + num + ' / ' + totalPages;
+          // Show brief spinner on page change
+          pagesEl.innerHTML = '<div class="tfe-spinner-wrap" style="min-height:60px"><div class="tfe-spinner"></div><div class="tfe-spinner-msg">Rendering page ' + num + '…</div></div>';
 
           pdf.getPage(num).then(function(page) {
             // Scale to fit container width
@@ -2061,7 +1914,6 @@
             canvas.height = scaledVP.height;
             pagesEl.innerHTML = '';
             pagesEl.appendChild(canvas);
-
             page.render({canvasContext: canvas.getContext('2d'), viewport: scaledVP});
           });
         };
@@ -2157,6 +2009,170 @@
     };
   };
 
+  // ── Client-side compression helpers ─────────────────────────────────────────
+
+  // Compress image to JPEG 70% quality, resize if > maxDim on longest side
+  TinyEditor.prototype._compressImage = function (file, callback) {
+    var MAX_DIM = 1920; // px on longest side
+    var QUALITY = 0.70;
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var img = new Image();
+      img.onload = function() {
+        var w = img.width, h = img.height;
+        if (w > MAX_DIM || h > MAX_DIM) {
+          if (w > h) { h = Math.round(h * MAX_DIM / w); w = MAX_DIM; }
+          else        { w = Math.round(w * MAX_DIM / h); h = MAX_DIM; }
+        }
+        var canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        canvas.toBlob(function(blob) {
+          if (!blob) { callback(null, file); return; } // fallback to original
+          // Only use compressed if actually smaller
+          if (blob.size < file.size) {
+            callback(blob, new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), {type:'image/jpeg'}));
+          } else {
+            callback(null, file);
+          }
+        }, 'image/jpeg', QUALITY);
+      };
+      img.onerror = function() { callback(null, file); };
+      img.src = e.target.result;
+    };
+    reader.onerror = function() { callback(null, file); };
+    reader.readAsDataURL(file);
+  };
+
+  // Compress video using MediaRecorder re-encode at lower bitrate
+  TinyEditor.prototype._compressVideo = function (file, onProgress, callback) {
+    // Use Video + MediaRecorder if supported, else fall through
+    if (typeof MediaRecorder === 'undefined' || typeof VideoDecoder !== 'undefined' === false) {
+      // Check if MediaRecorder supports a codec
+      var mimeTypes = ['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
+      var mime = mimeTypes.find(function(m){ return MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(m); });
+      if (!mime) { callback(null, file); return; } // no support — skip compression
+    }
+
+    var mime = ['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm']
+      .find(function(m){ return typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(m); });
+    if (!mime) { callback(null, file); return; }
+
+    var url = URL.createObjectURL(file);
+    var video = document.createElement('video');
+    video.src = url; video.muted = true; video.playsInline = true;
+    video.onloadedmetadata = function() {
+      var canvas = document.createElement('canvas');
+      // Scale to max 720p
+      var scale = Math.min(1, 720 / Math.max(video.videoWidth, video.videoHeight));
+      canvas.width  = Math.round(video.videoWidth  * scale);
+      canvas.height = Math.round(video.videoHeight * scale);
+      var ctx = canvas.getContext('2d');
+      var stream = canvas.captureStream(24); // 24fps
+      // Add audio track if present
+      var chunks = [];
+      var rec;
+      try {
+        rec = new MediaRecorder(stream, {mimeType: mime, videoBitsPerSecond: 800000});
+      } catch(e) { URL.revokeObjectURL(url); callback(null, file); return; }
+      rec.ondataavailable = function(e){ if(e.data.size>0) chunks.push(e.data); };
+      rec.onstop = function() {
+        URL.revokeObjectURL(url);
+        var blob = new Blob(chunks, {type: mime});
+        var ext = mime.includes('webm') ? '.webm' : '.mp4';
+        var outFile = new File([blob], file.name.replace(/\.[^.]+$/, ext), {type: mime});
+        callback(blob.size < file.size ? blob : null, blob.size < file.size ? outFile : file);
+      };
+      // Draw video frames
+      var draw = function() {
+        if (video.paused || video.ended) { rec.stop(); return; }
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        if(onProgress) onProgress(video.currentTime / video.duration);
+        requestAnimationFrame(draw);
+      };
+      rec.start(100);
+      video.play().then(function(){ draw(); }).catch(function(){
+        rec.stop(); URL.revokeObjectURL(url); callback(null, file);
+      });
+    };
+    video.onerror = function(){ URL.revokeObjectURL(url); callback(null, file); };
+    document.body.appendChild(video);
+    setTimeout(function(){ document.body.removeChild(video); }, 100);
+  };
+
+  // Compress PDF by re-rendering pages at 150dpi and re-encoding to PDF
+  // Uses PDF.js to render → canvas → image data per page
+  TinyEditor.prototype._compressPdf = function (file, onProgress, callback) {
+    var self = this;
+    self._loadPdfJs(function(err, pdfjsLib) {
+      if (err) { callback(null, file); return; }
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        pdfjsLib.getDocument({data: e.target.result}).promise.then(function(pdf) {
+          var totalPages = pdf.numPages;
+          var pageImages = [];
+          var renderPage = function(num) {
+            if (num > totalPages) {
+              // All pages rendered — build a minimal PDF from JPEG images
+              // Since we can't write a real PDF without a lib, just return original
+              // (compression via image re-encoding is the best we can do without jsPDF)
+              // For now: only compress if it's a single-image PDF (scanned)
+              callback(null, file);
+              return;
+            }
+            if (onProgress) onProgress((num-1) / totalPages);
+            pdf.getPage(num).then(function(page) {
+              var vp = page.getViewport({scale: 1.5}); // 150dpi equivalent
+              var canvas = document.createElement('canvas');
+              canvas.width = vp.width; canvas.height = vp.height;
+              page.render({canvasContext: canvas.getContext('2d'), viewport: vp})
+                  .promise.then(function() {
+                pageImages.push(canvas.toDataURL('image/jpeg', 0.7));
+                renderPage(num + 1);
+              });
+            }).catch(function(){ callback(null, file); });
+          };
+          renderPage(1);
+        }).catch(function(){ callback(null, file); });
+      };
+      reader.readAsArrayBuffer(file);
+    });
+  };
+
+  // ── Spinner helpers (used across all async operations) ──────────────────────
+  TinyEditor.prototype._showSpinner = function (containerId, msg) {
+    var container = document.getElementById(containerId);
+    if (!container) return;
+    // If already showing spinner, just update message
+    var existing = container.querySelector('.tfe-spinner-wrap');
+    if (existing) { this._spinnerMsg(containerId, msg); return; }
+    var wrap = document.createElement('div');
+    wrap.className = 'tfe-spinner-wrap';
+    wrap.id = containerId + '-spin';
+    wrap.innerHTML =
+      '<div class="tfe-spinner"></div>' +
+      '<div class="tfe-spinner-msg">' + (msg || '') + '</div>' +
+      '<div class="tfe-spinner-bar-wrap"><div class="tfe-spinner-bar" id="' + containerId + '-bar"></div></div>';
+    container.appendChild(wrap);
+  };
+  TinyEditor.prototype._hideSpinner = function (containerId) {
+    var el = document.getElementById(containerId + '-spin');
+    if (el) el.remove();
+    // Also hide upload progress bar
+    var bar = document.getElementById('tfe-upload-bar');
+    var prog = document.getElementById('tfe-upload-progress');
+    if (bar) bar.style.width = '0';
+    if (prog) prog.style.display = 'none';
+  };
+  TinyEditor.prototype._spinnerMsg = function (containerId, msg, pct) {
+    var msgEl = document.querySelector('#' + containerId + '-spin .tfe-spinner-msg');
+    if (msgEl) msgEl.textContent = msg || '';
+    if (typeof pct === 'number') {
+      var barEl = document.getElementById(containerId + '-bar');
+      if (barEl) barEl.style.width = Math.min(100, Math.round(pct * 100)) + '%';
+    }
+  };
+
   TinyEditor.prototype._isLinkMode = function () {
     var r = document.getElementById('tfe-mode-link');
     return !!(r && r.checked);
@@ -2182,11 +2198,17 @@
       + '<input class="tfe-media-input" id="tfe-mc-url" placeholder="Paste any URL..." autocomplete="off">'
       + '<button class="tfe-media-btn" id="tfe-mc-embed">Insert</button>'
       + '</div>'
+      + '<div class="tfe-media-label-row">'
+      + '<label for="tfe-mc-url-label">Label / display name <span style="color:#e24b4a">*</span></label>'
+      + '<input class="tfe-media-label-input" id="tfe-mc-url-label" placeholder="e.g. Company Logo, Demo Video..." autocomplete="off">'
+      + '</div>'
       /* Override buttons — hidden until auto-detect is uncertain */
-      + '<div id="tfe-mc-overrides" style="display:none;gap:6px;margin-top:8px">'
-      + '<span style="font-size:11px;color:var(--tfe-mut,#888);align-self:center;flex-shrink:0">Insert as:</span>'
-      + '<button class="tfe-media-btn-sec" id="tfe-mc-img" style="flex:1">&#128444; Image</button>'
-      + '<button class="tfe-media-btn-sec" id="tfe-mc-vid" style="flex:1">&#127916; Video</button>'
+      + '<div id="tfe-mc-overrides" style="display:none;gap:6px;margin-top:8px;flex-wrap:wrap">'
+      + '<span style="font-size:11px;color:var(--tfe-mut,#888);width:100%;margin-bottom:2px">Insert as:</span>'
+      + '<button class="tfe-media-btn-sec" id="tfe-mc-img" style="flex:1;min-width:80px">&#128444; Image</button>'
+      + '<button class="tfe-media-btn-sec" id="tfe-mc-vid" style="flex:1;min-width:80px">&#127916; Video</button>'
+      + '<button class="tfe-media-btn-sec" id="tfe-mc-pdf" style="flex:1;min-width:80px">&#128209; PDF</button>'
+      + '<button class="tfe-media-btn-sec" id="tfe-mc-other" style="flex:1;min-width:80px">&#128279; Link</button>'
       + '</div>'
       + '<div style="font-size:12px;color:var(--tfe-mut,#888);margin-top:8px;line-height:1.7">'
       + '&#127916;&nbsp;YouTube &middot; Vimeo &middot; Facebook &middot; Instagram &middot; Twitter/X<br>'
@@ -2198,6 +2220,13 @@
       '<div class="tfe-media-card tfe-media-card--upload">'
       + '<div class="tfe-media-label" style="display:flex;align-items:center;gap:6px">'
       + '<span style="font-size:15px">&#128193;</span> UPLOAD FILE</div>'
+      + '<div class="tfe-media-label-row">'
+      + '<label for="tfe-mc-upload-label">Label / display name <span style="color:#e24b4a">*</span></label>'
+      + '<input class="tfe-media-label-input" id="tfe-mc-upload-label" placeholder="e.g. Product Photo, Intro Video..." autocomplete="off">'
+      + '</div>'
+      + '<label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--tfe-mut,#888);cursor:pointer;padding:2px 0 6px;user-select:none">'
+      + '<input type="checkbox" id="tfe-mc-compress" checked style="width:14px;height:14px;accent-color:var(--tfe-acc,#4f8ef7);cursor:pointer">'
+      + '&#9889; Auto-compress if necessary</label>'
       + '<div class="tfe-media-row">'
       + '<button class="tfe-media-btn-sec" id="tfe-mc-img-upload">&#128444;&nbsp; Image</button>'
       + '<button class="tfe-media-btn-sec" id="tfe-mc-vid-upload">&#127916;&nbsp; Video</button>'
@@ -2266,7 +2295,36 @@
 
     // URL insert
     if (showUrl) {
-      var getUrl = function() { return (document.getElementById('tfe-mc-url').value || '').trim(); };
+      var getUrl   = function() { return (document.getElementById('tfe-mc-url').value || '').trim(); };
+      var getUrlLabel = function() { return (document.getElementById('tfe-mc-url-label')?.value || '').trim(); };
+      var getUploadLabel = function() { return (document.getElementById('tfe-mc-upload-label')?.value || '').trim(); };
+
+      // Validate label — shake + focus if empty, return false
+      var requireLabel = function(inputId) {
+        var inp = document.getElementById(inputId);
+        if (!inp) return true; // no input = optional
+        var val = inp.value.trim();
+        if (!val) {
+          inp.classList.add('tfe-label-error');
+          inp.focus();
+          setTimeout(function(){ inp.classList.remove('tfe-label-error'); }, 400);
+          return false;
+        }
+        return true;
+      };
+
+      // Build a filename: label_YYYYMMDDHHmmssSSS.ext
+      var buildFilename = function(label, origName) {
+        var ext = (origName || '').split('.').pop().toLowerCase();
+        if (!ext || ext.length > 5) ext = 'bin';
+        var safe = label.replace(/[^a-z0-9_\-]/gi, '_').replace(/_+/g,'_').replace(/^_|_$/g,'').toLowerCase();
+        var now  = new Date();
+        var pad  = function(n,w){ return String(n).padStart(w,'0'); };
+        var ts   = pad(now.getFullYear(),4)+pad(now.getMonth()+1,2)+pad(now.getDate(),2)+
+                   pad(now.getHours(),2)+pad(now.getMinutes(),2)+pad(now.getSeconds(),2)+
+                   pad(now.getMilliseconds(),3);
+        return safe + '_' + ts + '.' + ext;
+      };
 
       // Show/hide override buttons based on whether URL is ambiguous
       var checkUrlAmbiguity = function(url) {
@@ -2287,12 +2345,14 @@
       // Insert — smart auto-detect
       document.getElementById('tfe-mc-embed').onclick = function() {
         var url = getUrl(); if (!url) return;
+        if (!requireLabel('tfe-mc-url-label')) return;
+        var lbl = getUrlLabel();
         if (isLinkMode()) {
           self._ed.focus();
-          document.execCommand('insertHTML', false, '<a href="' + _esc(url) + '" target="_blank" style="color:var(--tfe-acc,#4f8ef7)">' + _esc(url) + '</a> ');
+          document.execCommand('insertHTML', false, '<a href="' + _esc(url) + '" target="_blank" style="color:var(--tfe-acc,#4f8ef7)">' + _esc(lbl) + '</a> ');
           self._updateSize();
         } else {
-          self._insertMediaByUrl(url);
+          self._insertMediaByUrl(url, lbl);
         }
         close();
       };
@@ -2300,12 +2360,14 @@
       // 🖼 Force Image override
       document.getElementById('tfe-mc-img').onclick = function() {
         var url = getUrl(); if (!url) return;
+        if (!requireLabel('tfe-mc-url-label')) return;
+        var lbl = getUrlLabel();
         self._ed.focus();
         if (isLinkMode()) {
-          document.execCommand('insertHTML', false, '<a href="' + _esc(url) + '" target="_blank" style="color:var(--tfe-acc,#4f8ef7)">' + _esc(url) + '</a> ');
+          document.execCommand('insertHTML', false, '<a href="' + _esc(url) + '" target="_blank" style="color:var(--tfe-acc,#4f8ef7)">' + _esc(lbl||url) + '</a> ');
         } else {
           document.execCommand('insertHTML', false,
-            self._wrapBlock('<img src="' + _esc(url) + '" style="max-width:100%;border-radius:4px;display:block">') + '<p><br></p>');
+            self._wrapBlock('<img src="' + _esc(url) + '" alt="' + _esc(lbl) + '" style="max-width:100%;border-radius:4px;display:block">') + '<p><br></p>');
         }
         self._updateSize(); close();
       };
@@ -2313,9 +2375,11 @@
       // 🎬 Force Video override
       document.getElementById('tfe-mc-vid').onclick = function() {
         var url = getUrl(); if (!url) return;
+        if (!requireLabel('tfe-mc-url-label')) return;
+        var lbl = getUrlLabel();
         self._ed.focus();
         if (isLinkMode()) {
-          document.execCommand('insertHTML', false, '<a href="' + _esc(url) + '" target="_blank" style="color:var(--tfe-acc,#4f8ef7)">' + _esc(url) + '</a> ');
+          document.execCommand('insertHTML', false, '<a href="' + _esc(url) + '" target="_blank" style="color:var(--tfe-acc,#4f8ef7)">' + _esc(lbl||url) + '</a> ');
         } else {
           document.execCommand('insertHTML', false,
             self._wrapBlock('<video controls style="max-width:100%;border-radius:6px;display:block;background:#000" preload="metadata">'
@@ -2323,6 +2387,37 @@
         }
         self._updateSize(); close();
       };
+
+      // 📑 Force PDF override
+      if (document.getElementById('tfe-mc-pdf')) {
+        document.getElementById('tfe-mc-pdf').onclick = function() {
+          var url = getUrl(); if (!url) return;
+          if (!requireLabel('tfe-mc-url-label')) return;
+          var lbl = getUrlLabel();
+          self._ed.focus();
+          if (isLinkMode()) {
+            document.execCommand('insertHTML', false, '<a href="' + _esc(url) + '" target="_blank" style="color:var(--tfe-acc,#4f8ef7)">' + _esc(lbl||url) + '</a> ');
+          } else {
+            var html = self._buildPdfEmbed(url, lbl || url.split('/').pop().split('?')[0] || 'document.pdf');
+            self._insertHtmlAtCursor(html + '<p><br></p>');
+            setTimeout(function() { self._renderAllPdfs(); }, 300);
+          }
+          self._updateSize(); close();
+        };
+      }
+
+      // 🔗 Force plain link (Other)
+      if (document.getElementById('tfe-mc-other')) {
+        document.getElementById('tfe-mc-other').onclick = function() {
+          var url = getUrl(); if (!url) return;
+          if (!requireLabel('tfe-mc-url-label')) return;
+          var lbl = getUrlLabel();
+          self._ed.focus();
+          document.execCommand('insertHTML', false,
+            '<a href="' + _esc(url) + '" target="_blank" style="color:var(--tfe-acc,#4f8ef7)">' + _esc(lbl||url) + '</a> ');
+          self._updateSize(); close();
+        };
+      }
 
       // Enter key → Insert
       document.getElementById('tfe-mc-url').onkeydown = function(e) {
@@ -2332,30 +2427,35 @@
 
     // Upload buttons
     if (showUpload) {
+      // Read compress checkbox state
+      var shouldCompress = function() {
+        var cb = document.getElementById('tfe-mc-compress');
+        return cb ? cb.checked : true;
+      };
+
       document.getElementById('tfe-mc-img-upload').onclick = function() {
+        if (!requireLabel('tfe-mc-upload-label')) return;
+        self._pendingUploadLabel = getUploadLabel();
         self._pendingUploadAsLink = isLinkMode();
-        if (opts.uploadUrl) {
-          // server upload
-          self._pendingUploadClose = close;
-          close();
-          self._file_img.click();
-        } else {
-          close(); self._file_img.click();
-        }
+        self._pendingCompress = shouldCompress();
+        if (opts.uploadUrl) { self._pendingUploadClose = close; close(); }
+        else { close(); }
+        self._file_img.click();
       };
       document.getElementById('tfe-mc-vid-upload').onclick = function() {
+        if (!requireLabel('tfe-mc-upload-label')) return;
+        self._pendingUploadLabel = getUploadLabel();
         self._pendingUploadAsLink = isLinkMode();
-        if (opts.uploadUrl) {
-          self._pendingUploadClose = close;
-          close();
-          self._file_vid.click();
-        } else {
-          close(); self._file_vid.click();
-        }
+        self._pendingCompress = shouldCompress();
+        if (opts.uploadUrl) { self._pendingUploadClose = close; close(); }
+        else { close(); }
+        self._file_vid.click();
       };
-      // PDF upload
       if (document.getElementById('tfe-mc-pdf-upload')) {
         document.getElementById('tfe-mc-pdf-upload').onclick = function() {
+          if (!requireLabel('tfe-mc-upload-label')) return;
+          self._pendingUploadLabel = getUploadLabel();
+          self._pendingCompress = shouldCompress();
           close();
           self._file_pdf.click();
         };
@@ -2463,10 +2563,14 @@
     var self = this;
     var listEl = document.getElementById('tfe-files-list');
     if (!listEl || !this.opts.listUrl) return;
-
+    // Show spinner while loading
+    listEl.innerHTML = '';
+    var spinId = 'tfe-files-list';
+    self._showSpinner(spinId, 'Loading your files…');
     fetch(this.opts.listUrl)
       .then(function(r) { return r.json(); })
       .then(function(files) {
+        self._hideSpinner(spinId);
         if (!files || files.length === 0) {
           listEl.innerHTML = '<div class="tfe-media-file-empty">No files uploaded yet. Use Upload above.</div>';
           return;
@@ -2494,6 +2598,7 @@
         });
       })
       .catch(function() {
+        self._hideSpinner(spinId);
         listEl.innerHTML = '<div class="tfe-media-file-empty">&#9888; Could not load files.</div>';
       });
   };
@@ -2516,42 +2621,70 @@
   };
 
   TinyEditor.prototype._deleteFile = function (name, cb) {
+    var self = this;
     if (!this.opts.deleteUrl) return;
+    var listEl = document.getElementById('tfe-files-list');
+    var spinId = 'tfe-files-list';
+    if (listEl) self._showSpinner(spinId, 'Deleting file…');
     fetch(this.opts.deleteUrl + '/' + encodeURIComponent(name), {method:'DELETE'})
-      .then(function() { if (cb) cb(); })
-      .catch(function() { alert('Could not delete file'); });
+      .then(function()  { self._hideSpinner(spinId); if (cb) cb(); })
+      .catch(function() { self._hideSpinner(spinId); alert('Could not delete file'); });
   };
 
   TinyEditor.prototype._uploadFileToServer = function (file, type, asLink) {
     var self = this;
-    var fd = new FormData();
-    fd.append('file', file);
-    fd.append('type', type);
+    var label = self._pendingUploadLabel || '';
+    self._pendingUploadLabel = '';
 
-    // Show progress if modal still open
-    var progressWrap = document.getElementById('tfe-upload-progress');
-    var progressBar  = document.getElementById('tfe-upload-bar');
-    if (progressWrap) { progressWrap.style.display='block'; }
+    // Rename file: label_YYYYMMDDHHmmssSSS.ext
+    var uploadFile = file;
+    if (label) {
+      var ext = file.name.split('.').pop().toLowerCase() || 'bin';
+      var safe = label.replace(/[^a-z0-9_\-]/gi, '_').replace(/_+/g,'_').replace(/^_|_$/g,'').toLowerCase();
+      var now  = new Date();
+      var pad  = function(n,w){ return String(n).padStart(w,'0'); };
+      var ts   = pad(now.getFullYear(),4)+pad(now.getMonth()+1,2)+pad(now.getDate(),2)+
+                 pad(now.getHours(),2)+pad(now.getMinutes(),2)+pad(now.getSeconds(),2)+
+                 pad(now.getMilliseconds(),3);
+      var newName = safe + '_' + ts + '.' + ext;
+      uploadFile = new File([file], newName, {type: file.type, lastModified: file.lastModified});
+    }
+
+    var fd = new FormData();
+    fd.append('file', uploadFile);
+    fd.append('type', type);
+    if (label) fd.append('label', label);
+
+    // Show spinner
+    var modalBox = document.querySelector('.tfe-media-box');
+    if (modalBox && !modalBox.id) modalBox.id = 'tfe-media-box-spin-host';
+    self._showSpinner('tfe-media-box-spin-host', 'Uploading…');
 
     var xhr = new XMLHttpRequest();
     xhr.open('POST', self.opts.uploadUrl);
-    if (progressBar) {
-      xhr.upload.onprogress = function(e) {
-        if (e.lengthComputable) progressBar.style.width = (e.loaded/e.total*100) + '%';
-      };
-    }
+    xhr.upload.onprogress = function(e) {
+      if (e.lengthComputable) {
+        var pct = e.loaded / e.total;
+        var msgs = ['Uploading…','Almost there…','Finishing…'];
+        self._spinnerMsg('tfe-media-box-spin-host',
+          pct < 0.4 ? 'Uploading…' : pct < 0.8 ? 'Almost there…' : 'Finishing…', pct);
+        var bar = document.getElementById('tfe-upload-bar');
+        if (bar) bar.style.width = (pct*100) + '%';
+      }
+    };
     xhr.onload = function() {
+      self._hideSpinner('tfe-media-box-spin-host');
       if (xhr.status >= 200 && xhr.status < 300) {
         try {
           var data = JSON.parse(xhr.responseText);
           var url = data.url || data.path || data.filename || '';
           if (!url) throw new Error('No URL in response');
+          var displayLabel = label || uploadFile.name || url.split('/').pop();
           if (asLink) {
             self._ed.focus();
-            var fname = (file.name || url.split('/').pop());
-            document.execCommand('insertHTML', false, '<a href="' + _esc(url) + '" target="_blank" style="color:var(--tfe-acc,#4f8ef7)">' + _esc(fname) + '</a> ');
+            document.execCommand('insertHTML', false, '<a href="' + _esc(url) + '" target="_blank" style="color:var(--tfe-acc,#4f8ef7)">' + _esc(displayLabel) + '</a> ');
           } else {
-            self._insertMediaByUrl(url);
+            self._insertMediaByUrl(url, displayLabel);
           }
           self._updateSize();
         } catch(e) {
@@ -2561,14 +2694,14 @@
         alert('Upload failed: ' + xhr.status);
       }
     };
-    xhr.onerror = function() { alert('Upload failed'); };
+    xhr.onerror = function() { self._hideSpinner('tfe-media-box-spin-host'); alert('Upload failed'); };
     xhr.send(fd);
   };
 
-  TinyEditor.prototype._insertMediaByUrl = function (url) {
+  TinyEditor.prototype._insertMediaByUrl = function (url, label) {
     var self = this;
     this._ed.focus();
-    var html = this._buildMediaHtml(url);
+    var html = this._buildMediaHtml(url, label);
     // _buildPdfEmbed already wraps in tfe-block-wrap — don't double-wrap
     if (!html.includes('tfe-block-wrap') &&
         (html.includes('<iframe') || html.includes('<video') || html.includes('<img'))) {
@@ -2582,7 +2715,7 @@
     }
   };
 
-  TinyEditor.prototype._buildMediaHtml = function (url) {
+  TinyEditor.prototype._buildMediaHtml = function (url, label) {
     var self = this;
     var u = url.trim();
     // YouTube
@@ -2607,13 +2740,13 @@
     // Direct video file
     if (/\.(mp4|webm|ogg|mov)(\?|$)/i.test(u)) return '<video class="tfe-vid-block" controls contenteditable="false" preload="metadata"><source src="' + _esc(u) + '">Your browser does not support video.</video>';
     // Direct image file
-    if (/\.(jpe?g|png|gif|webp|svg|bmp)(\?|$)/i.test(u)) return '<img class="tfe-img-block" src="' + _esc(u) + '">';
+    if (/\.(jpe?g|png|gif|webp|svg|bmp)(\?|$)/i.test(u)) return '<img class="tfe-img-block" src="' + _esc(u) + '" alt="' + _esc(label||'') + '">';
     // PDF URL — render with PDF.js viewer
     if (/\.pdf(\?|$)/i.test(u)) {
-      return self._buildPdfEmbed(u, u.split('/').pop().split('?')[0] || 'document.pdf');
+      return self._buildPdfEmbed(u, label || u.split('/').pop().split('?')[0] || 'document.pdf');
     }
-    // Generic link fallback
-    return '<a href="' + _esc(u) + '" target="_blank" style="color:var(--tfe-acc,#4f8ef7)">' + _esc(u) + '</a>';
+    // Generic link fallback — use label if provided
+    return '<a href="' + _esc(u) + '" target="_blank" style="color:var(--tfe-acc,#4f8ef7)">' + _esc(label||u) + '</a>';
   };
 
   // ── Insert link ────────────────────────────────────────────────────────────
@@ -2634,13 +2767,117 @@
   TinyEditor.prototype._fileChosen = function (type, e) {
     const file = e.target.files[0];
     if (!file) return;
-    const maxSize = type === 'img' ? this.opts.maxImageSize : type === 'vid' ? this.opts.maxVideoSize : this.opts.maxSize;
-    if (file.size > maxSize) {
-      alert('File too large. Max: ' + Math.round(maxSize / 1024) + 'KB');
-      e.target.value = '';
+    const self = this;
+    const compress = !!self._pendingCompress;
+    self._pendingCompress = false;
+    const maxSize = type === 'img' ? self.opts.maxImageSize : type === 'vid' ? self.opts.maxVideoSize : self.opts.maxSize;
+
+    // Helper: show compression progress in progress bar
+    var showProgress = function(label) {
+      var bar = document.getElementById('tfe-upload-bar');
+      var wrap = document.getElementById('tfe-upload-progress');
+      if (wrap) wrap.style.display = 'block';
+      if (bar) { bar.style.width = '30%'; bar.title = label || 'Compressing…'; }
+    };
+    var hideProgress = function() {
+      var bar = document.getElementById('tfe-upload-bar');
+      var wrap = document.getElementById('tfe-upload-progress');
+      if (bar) bar.style.width = '0';
+      if (wrap) wrap.style.display = 'none';
+    };
+
+    // Compression pipeline: compress if enabled AND file exceeds limit
+    var processFile = function(processedFile, afterFn) {
+      if (processedFile.size > maxSize) {
+        alert('File too large (' + (processedFile.size/1048576).toFixed(1) + 'MB). Max: ' +
+          (maxSize/1048576).toFixed(0) + 'MB. Try enabling compression.');
+        e.target.value = '';
+        hideProgress();
+        return;
+      }
+      afterFn(processedFile);
+    };
+
+    if (type === 'img') {
+      var asLink = !!self._pendingUploadAsLink; self._pendingUploadAsLink = false;
+      var doImg = function(imgFile) {
+        processFile(imgFile, function(f) {
+          hideProgress();
+          if (self.opts.uploadUrl) { self._uploadFileToServer(f, type, asLink); e.target.value=''; return; }
+          var pendingLbl = self._pendingUploadLabel || f.name || 'image';
+          self._pendingUploadLabel = '';
+          var reader = new FileReader();
+          reader.onload = function(ev) {
+            self._ed.focus();
+            if (asLink) {
+              document.execCommand('insertHTML',false,'<a href="'+ev.target.result+'" target="_blank" style="color:var(--tfe-acc,#4f8ef7)">'+_esc(pendingLbl)+'</a> ');
+            } else {
+              document.execCommand('insertHTML',false, self._wrapBlock('<img src="'+ev.target.result+'" alt="'+_esc(pendingLbl)+'" style="max-width:100%;border-radius:4px;display:block">'));
+            }
+            self._updateSize();
+          };
+          reader.readAsDataURL(f);
+          e.target.value = '';
+        });
+      };
+      if (compress && file.size > maxSize * 0.8) {
+        var boxEl = document.querySelector('.tfe-media-box');
+        if (boxEl && !boxEl.id) boxEl.id = 'tfe-comp-host';
+        var compHostId = (boxEl && boxEl.id) || 'tfe-comp-host';
+        self._showSpinner(compHostId, 'Converting to JPEG…');
+        self._spinnerMsg(compHostId, 'Converting to JPEG…', 0.1);
+        self._compressImage(file, function(blob, compressed) {
+          var saved = Math.round((1 - compressed.size/file.size)*100);
+          self._spinnerMsg(compHostId, saved > 0 ? 'Compressed! Saved '+saved+'%' : 'Image ready', 1);
+          setTimeout(function(){ self._hideSpinner(compHostId); doImg(compressed); }, 400);
+        });
+      } else {
+        doImg(file);
+      }
       return;
     }
-    const self = this;
+
+    if (type === 'vid') {
+      var asLinkV = !!self._pendingUploadAsLink; self._pendingUploadAsLink = false;
+      var doVid = function(vidFile) {
+        processFile(vidFile, function(f) {
+          hideProgress();
+          if (self.opts.uploadUrl) { self._uploadFileToServer(f, type, asLinkV); e.target.value=''; return; }
+          var pendingLblV = self._pendingUploadLabel || f.name || 'video';
+          self._pendingUploadLabel = '';
+          var reader = new FileReader();
+          reader.onload = function(ev) {
+            self._ed.focus();
+            if (asLinkV) {
+              document.execCommand('insertHTML',false,'<a href="'+ev.target.result+'" target="_blank" style="color:var(--tfe-acc,#4f8ef7)">'+_esc(pendingLblV)+'</a> ');
+            } else {
+              document.execCommand('insertHTML',false, self._wrapBlock('<video class="tfe-vid-block" controls preload="metadata" title="'+_esc(pendingLblV)+'"><source src="'+ev.target.result+'" type="'+f.type+'">Your browser does not support video.</video>'));
+            }
+            self._updateSize();
+          };
+          reader.readAsDataURL(f);
+          e.target.value = '';
+        });
+      };
+      if (compress && file.size > maxSize * 0.8) {
+        var vboxEl = document.querySelector('.tfe-media-box');
+        if (vboxEl && !vboxEl.id) vboxEl.id = 'tfe-vcomp-host';
+        var vHostId = (vboxEl && vboxEl.id) || 'tfe-vcomp-host';
+        self._showSpinner(vHostId, 'Compressing video…');
+        var vMsgs = ['Analysing frames…','Re-encoding…','Optimising…','Finishing…'];
+        self._compressVideo(file, function(pct){
+          self._spinnerMsg(vHostId, vMsgs[Math.min(Math.floor(pct*4), vMsgs.length-1)], pct);
+        }, function(blob, compressed) {
+          var saved = Math.round((1 - compressed.size/file.size)*100);
+          self._spinnerMsg(vHostId, saved > 0 ? 'Done! Saved '+saved+'%' : 'Video ready', 1);
+          setTimeout(function(){ self._hideSpinner(vHostId); doVid(compressed); }, 400);
+        });
+      } else {
+        doVid(file);
+      }
+      return;
+    }
+
     const reader = new FileReader();
     if (type === 'img' || type === 'vid') {
       var asLink = !!self._pendingUploadAsLink;
