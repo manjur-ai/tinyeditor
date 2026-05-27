@@ -1836,8 +1836,8 @@
     var id = 'tfe-pdf-' + Date.now();
     return '<div class="tfe-block-wrap" contenteditable="false">'
       + '<button class="tfe-del-btn" onclick="this.parentElement.remove()" title="Delete PDF">&#10005;</button>'
-      + '<div class="tfe-pdf-wrap" id="' + id + '" data-pdf-src="' + _esc(src) + '">'
-      + '<div class="tfe-pdf-loading">&#128209; Loading PDF.js&hellip;</div>'
+      + '<div class="tfe-pdf-wrap" id="' + id + '" data-pdf-src="' + _esc(src) + '" data-pdf-label="' + _esc(label||'') + '">'
+      + '<div class="tfe-pdf-loading">&#128209; ' + _esc(label||'Loading PDF…') + '</div>'
       + '</div></div>';
   };
 
@@ -1845,8 +1845,9 @@
   TinyEditor.prototype._renderPdfJs = function (wrap) {
     var self = this;
     var src = wrap.getAttribute('data-pdf-src');
-    if (!src || wrap.getAttribute('data-pdf-loaded')) return;
-    wrap.setAttribute('data-pdf-loaded', '1');
+    if (!src || wrap.getAttribute('data-pdf-loaded') === '1') return;
+    // Mark as loading (not loaded) — set to '1' only after first page renders
+    wrap.setAttribute('data-pdf-loaded', 'pending');
 
     // Show inline spinner while PDF.js loads + document parses
     var spinId = wrap.id + '-pdfload';
@@ -1881,7 +1882,7 @@
         setMsg('Rendering…', 0.6);
         var totalPages = pdf.numPages;
         var currentPage = 1;
-        var label = src.split('/').pop().split('?')[0] || 'document.pdf';
+        var label = wrap.getAttribute('data-pdf-label') || src.split('/').pop().split('?')[0] || 'document.pdf';
 
         // Build UI
         spinEl.remove();
@@ -1907,19 +1908,59 @@
           pagesEl.innerHTML = '<div class="tfe-spinner-wrap" style="min-height:60px"><div class="tfe-spinner"></div><div class="tfe-spinner-msg">Rendering page ' + num + '…</div></div>';
 
           pdf.getPage(num).then(function(page) {
-            // Scale to fit container width
-            var containerW = wrap.offsetWidth || 360;
-            var viewport = page.getViewport({scale: 1});
-            var scale = (containerW - 16) / viewport.width;
-            var scaledVP = page.getViewport({scale: Math.max(0.5, Math.min(scale, 3))});
+            // Measure container width — try multiple sources
+            var getWidth = function() {
+              // _roWidth set by Toolfy read-only view renderer
+              if (wrap._roWidth) return wrap._roWidth;
+              // Walk up DOM to find a real width
+              var el = wrap;
+              while (el && el !== document.body) {
+                var w = el.getBoundingClientRect().width;
+                if (w > 50) return w;
+                el = el.parentElement;
+              }
+              return (document.getElementById('note-ro-view') &&
+                       document.getElementById('note-ro-view').getBoundingClientRect().width)
+                  || (window.innerWidth - 32)
+                  || 360;
+            };
+            // If width is 0, element may not be laid out — use rAF to retry once
+            var doRender = function() {
+              var containerW = getWidth();
+              var availW = Math.max(200, containerW - 16);
+              var viewport = page.getViewport({scale: 1});
+              var scale = availW / viewport.width;
+              var scaledVP = page.getViewport({scale: Math.max(0.5, Math.min(scale, 4))});
 
-            var canvas = document.createElement('canvas');
-            canvas.className = 'tfe-pdf-canvas';
-            canvas.width  = scaledVP.width;
-            canvas.height = scaledVP.height;
-            pagesEl.innerHTML = '';
-            pagesEl.appendChild(canvas);
-            page.render({canvasContext: canvas.getContext('2d'), viewport: scaledVP});
+              var canvas = document.createElement('canvas');
+              canvas.className = 'tfe-pdf-canvas';
+              canvas.width  = scaledVP.width;
+              canvas.height = scaledVP.height;
+
+              // Clear spinner and append canvas BEFORE rendering
+              pagesEl.innerHTML = '';
+              // CSS width:100% makes canvas fill container visually regardless of pixel size
+              canvas.style.cssText = 'width:100%;height:auto;display:block;border-radius:4px';
+              pagesEl.appendChild(canvas);
+
+              // Await render promise — prevents white flash
+              var ctx = canvas.getContext('2d');
+              var renderTask = page.render({canvasContext: ctx, viewport: scaledVP});
+              renderTask.promise.then(function() {
+                // Mark loaded only after render fully completes
+                if (num === currentPage) wrap.setAttribute('data-pdf-loaded', '1');
+              }).catch(function(err) {
+                if (err && err.name !== 'RenderingCancelledException') {
+                  canvas.style.background = '#fff';
+                }
+              });
+            };
+
+            if (getWidth() === 0) {
+              requestAnimationFrame(function() { requestAnimationFrame(doRender); });
+            } else {
+              doRender();
+            }
           });
         };
 
@@ -1937,7 +1978,7 @@
   // Scan editor for unrendered PDFs and render them
   TinyEditor.prototype._renderAllPdfs = function () {
     var self = this;
-    var wraps = this._ed.querySelectorAll('.tfe-pdf-wrap[data-pdf-src]:not([data-pdf-loaded])');
+    var wraps = this._ed.querySelectorAll('.tfe-pdf-wrap[data-pdf-src]:not([data-pdf-loaded="1"])');
     wraps.forEach(function(w) { self._renderPdfJs(w); });
   };
 
