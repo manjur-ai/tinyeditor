@@ -60,11 +60,11 @@
 .tfe-pdf-error{text-align:center;padding:16px;color:#e24b4a;font-size:13px}
 .tfe-wrap{display:flex;flex-direction:column;gap:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;box-sizing:border-box}
 .tfe-wrap *{box-sizing:border-box}
-.tfe-toolbar{display:flex;gap:4px;padding:6px 8px 8px;border-bottom:1px solid var(--tfe-bdr,#2d2d2d);flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.tfe-toolbar{display:flex;gap:3px;padding:6px 8px 8px;border-bottom:1px solid var(--tfe-bdr,#2d2d2d);flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 .tfe-toolbar::-webkit-scrollbar{display:none}
-.tfe-toolbar-bottom{border-top:1px solid var(--tfe-bdr,#2d2d2d);border-bottom:none;padding:6px 8px env(safe-area-inset-bottom,0);position:fixed;bottom:0;left:0;right:0;z-index:10000;background:var(--tfe-sur,#141414);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);opacity:0;pointer-events:none;transition:opacity .2s ease,bottom .15s ease;box-shadow:0 -1px 12px rgba(0,0,0,.3)}
+.tfe-toolbar-bottom{border-top:1px solid var(--tfe-bdr,#2d2d2d);border-bottom:none;padding:6px 8px env(safe-area-inset-bottom,8px);position:fixed;bottom:0;left:0;right:0;z-index:10000;background:var(--tfe-sur,#141414);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);opacity:0;pointer-events:none;transition:opacity .2s ease,bottom .15s ease;box-shadow:0 -1px 12px rgba(0,0,0,.3)}
 .tfe-toolbar-bottom.tfe-tb-visible{opacity:1;pointer-events:auto}
-.tfe-btn{background:var(--tfe-sur2,#1e1e1e);border:1px solid var(--tfe-bdr,#2d2d2d);border-radius:6px;color:var(--tfe-txt,#e0e0e0);font-size:13px;font-weight:600;padding:4px 9px;cursor:pointer;min-width:30px;transition:background .15s;line-height:1.4}
+.tfe-btn{background:var(--tfe-sur2,#1e1e1e);border:1px solid var(--tfe-bdr,#2d2d2d);border-radius:6px;color:var(--tfe-txt,#e0e0e0);font-size:14px;font-weight:600;padding:6px 10px;cursor:pointer;min-width:32px;transition:background .15s;line-height:1.4;flex:1;min-height:36px}
 .tfe-btn *{pointer-events:none}
 .tfe-btn:hover{background:var(--tfe-acc,#4f8ef7);color:#fff;border-color:var(--tfe-acc,#4f8ef7)}
 .tfe-btn:active{transform:scale(.95)}
@@ -74,7 +74,7 @@
 .tfe-editor h1{font-size:20px;font-weight:800;margin:8px 0 4px}
 .tfe-editor h2{font-size:17px;font-weight:700;margin:6px 0 3px;color:var(--tfe-acc,#4f8ef7)}
 .tfe-editor h3{font-size:15px;font-weight:700;margin:4px 0 2px}
-.tfe-editor p{margin:2px 0;color:inherit}.tfe-editor{color:var(--tfe-txt,#e0e0e0)}
+.tfe-editor p{margin:2px 0;color:var(--tfe-txt,#e0e0e0) !important}.tfe-editor{color:var(--tfe-txt,#e0e0e0) !important}.tfe-editor h1,.tfe-editor h2,.tfe-editor h3,.tfe-editor h4,.tfe-editor li,.tfe-editor blockquote{color:var(--tfe-txt,#e0e0e0) !important}
 .tfe-editor ul{padding-left:20px;margin:4px 0;list-style:disc}
 .tfe-editor ol{padding-left:20px;margin:4px 0;list-style:decimal}
 .tfe-editor li{margin:2px 0;display:list-item}
@@ -169,13 +169,13 @@
 .tfe-url-wrap{display:inline-flex;align-items:center;gap:4px}
 .tfe-preview-btn{background:var(--tfe-sur2,#1e1e1e);border:1px solid var(--tfe-bdr,#2d2d2d);border-radius:4px;font-size:11px;cursor:pointer;padding:1px 5px;color:var(--tfe-mut,#888);flex-shrink:0}
 .tfe-block-wrap{position:relative;margin:4px 0}
-.tfe-block-wrap .tfe-del-btn{position:absolute;top:4px;left:-22px;width:18px;height:18px;background:rgba(226,75,74,.15);border:1px solid rgba(226,75,74,.4);border-radius:50%;color:#e24b4a;font-size:11px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;z-index:10;opacity:0;visibility:hidden;transition:opacity .15s,visibility .15s,background .15s;pointer-events:none}
-.tfe-block-wrap:hover .tfe-del-btn{opacity:1;visibility:visible;pointer-events:auto}
-.tfe-block-wrap .tfe-del-btn:hover{background:rgba(226,75,74,.35)}
+.tfe-block-wrap .tfe-del-btn{position:absolute;top:6px;right:6px;width:26px;height:26px;background:rgba(226,75,74,.85);border:1.5px solid rgba(226,75,74,.9);border-radius:50%;color:#fff;font-size:13px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;z-index:20;opacity:0;visibility:hidden;transition:opacity .2s,visibility .2s;pointer-events:none}
+.tfe-block-wrap:hover .tfe-del-btn,.tfe-block-wrap:focus-within .tfe-del-btn{opacity:1;visibility:visible;pointer-events:auto}
+.tfe-block-wrap .tfe-del-btn:hover{background:rgba(226,75,74,1);transform:scale(1.1)}
 .tfe-touch .tfe-block-wrap .tfe-del-btn{opacity:1;visibility:visible;pointer-events:auto}
 .tfe-editor{padding-left:26px !important}
-.tfe-line-del{position:absolute;left:-22px;top:50%;transform:translateY(-50%);width:16px;height:16px;background:rgba(226,75,74,.1);border:1px solid rgba(226,75,74,.3);border-radius:50%;color:#e24b4a;font-size:10px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;z-index:9;opacity:0;visibility:hidden;transition:opacity .15s,visibility .15s,background .15s;pointer-events:none}
-.tfe-editor h1:hover>.tfe-line-del,.tfe-editor h2:hover>.tfe-line-del,.tfe-editor h3:hover>.tfe-line-del,.tfe-editor h4:hover>.tfe-line-del,.tfe-editor ul:hover>.tfe-line-del,.tfe-editor ol:hover>.tfe-line-del,.tfe-editor blockquote:hover>.tfe-line-del{opacity:1;visibility:visible;pointer-events:auto}
+.tfe-line-del{position:absolute;top:4px;right:4px;left:auto;transform:none;width:22px;height:22px;background:rgba(226,75,74,.85);border:1.5px solid rgba(226,75,74,.9);border-radius:50%;color:#fff;font-size:11px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;z-index:20;opacity:0;visibility:hidden;transition:opacity .2s,visibility .2s;pointer-events:none}
+.tfe-editor h1:hover>.tfe-line-del,.tfe-editor h2:hover>.tfe-line-del,.tfe-editor h3:hover>.tfe-line-del,.tfe-editor h4:hover>.tfe-line-del,.tfe-editor ul:hover>.tfe-line-del,.tfe-editor ol:hover>.tfe-line-del,.tfe-editor blockquote:hover>.tfe-line-del,.tfe-editor h1>.tfe-line-del:hover,.tfe-editor h2>.tfe-line-del:hover,.tfe-editor h3>.tfe-line-del:hover,.tfe-editor ul>.tfe-line-del:hover,.tfe-editor ol>.tfe-line-del:hover,.tfe-editor blockquote>.tfe-line-del:hover{opacity:1;visibility:visible;pointer-events:auto}
 .tfe-line-del:hover{background:rgba(226,75,74,.35)}
 .tfe-touch .tfe-editor h1>.tfe-line-del,.tfe-touch .tfe-editor h2>.tfe-line-del,.tfe-touch .tfe-editor h3>.tfe-line-del,.tfe-touch .tfe-editor h4>.tfe-line-del,.tfe-touch .tfe-editor ul>.tfe-line-del,.tfe-touch .tfe-editor ol>.tfe-line-del,.tfe-touch .tfe-editor blockquote>.tfe-line-del{opacity:1;visibility:visible;pointer-events:auto}
 .tfe-editor p,.tfe-editor h1,.tfe-editor h2,.tfe-editor h3,.tfe-editor h4,.tfe-editor li,.tfe-editor blockquote{position:relative}
@@ -2970,15 +2970,21 @@
       };
       reader.readAsText(file);
     } else if (type === 'pdf') {
-      // Read as ArrayBuffer → blob URL → PDF.js renders it
+      // If server upload configured, upload PDF and get a real persistent URL
+      if (self.opts.uploadUrl) {
+        self._uploadFileToServer(file, type, false);
+        e.target.value = '';
+        return;
+      }
+      // Local fallback: blob URL (session-only — PDF won't persist after page reload)
       reader.onload = function (ev) {
         var blob = new Blob([ev.target.result], {type: 'application/pdf'});
         var blobUrl = URL.createObjectURL(blob);
-        var label = file.name || 'document.pdf';
-        var html = self._buildPdfEmbed(blobUrl, label);
+        var pdfLabel = self._pendingUploadLabel || file.name || 'document.pdf';
+        self._pendingUploadLabel = '';
+        var html = self._buildPdfEmbed(blobUrl, pdfLabel);
         self._insertHtmlAtCursor(html);
         self._updateSize();
-        // Render after DOM settles
         setTimeout(function() {
           var wrap = self._ed.querySelector('.tfe-pdf-wrap:not([data-pdf-loaded])');
           if (wrap) self._renderPdfJs(wrap);
