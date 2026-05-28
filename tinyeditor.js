@@ -36,6 +36,7 @@
     listUrl:         null,             // GET endpoint e.g. '/api/uploads'
     deleteUrl:       null,             // DELETE endpoint e.g. '/api/uploads'
     darkMode:       'auto',            // 'auto' | 'dark' | 'light'
+    pdfPageMode:    'single',          // 'single' = first page + Prev/Next, 'all' = render every page
     linkPreviewUrl: null,              // URL of your link-preview API endpoint
     //   GET {linkPreviewUrl}?url=<encoded>
     //   returns { title, description, image, domain }
@@ -50,6 +51,7 @@
   const CSS = `
 .tfe-pdf-wrap{position:relative;width:100%;border-radius:8px;overflow:hidden;margin:8px 0;border:1px solid var(--tfe-bdr,#2d2d2d)}
 .tfe-pdf-canvas-wrap{width:100%;overflow-y:auto;max-height:68vh;display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px;background:#525659}
+.tfe-pdf-canvas-wrap--all{max-height:none;overflow-y:visible}
 .tfe-pdf-canvas{display:block;max-width:100%;box-shadow:0 2px 8px rgba(0,0,0,.4);background:#fff}
 .tfe-pdf-bar{display:flex;align-items:center;justify-content:space-between;padding:7px 12px;background:var(--tfe-sur2,#1e1e1e);font-size:12px;color:var(--tfe-txt,#e0e0e0);gap:8px;border-top:1px solid var(--tfe-bdr,#2d2d2d)}
 .tfe-pdf-bar span{flex:1;text-align:center;color:var(--tfe-mut,#888);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -102,13 +104,10 @@
 .tfe-doc-card--md .tfe-doc-card-badge{background:rgba(79,142,247,.15);color:#4f8ef7}
 .tfe-doc-card--html{border-left:3px solid #4caf50}
 .tfe-doc-card--html .tfe-doc-card-badge{background:rgba(76,175,80,.15);color:#4caf50}
-.tfe-doc-card--pdf{border-left:3px solid #f7c94f}
-.tfe-doc-card--pdf .tfe-doc-card-badge{background:rgba(247,201,79,.15);color:#f7c94f}
-.tfe-doc-card--pdf:hover{border-color:#f7c94f;background:rgba(247,201,79,.07)}
-.tfe-media-box{background:var(--tfe-sur,#141414);border:1px solid var(--tfe-bdr,#2d2d2d);border-radius:14px;padding:16px;width:calc(100vw - 24px);max-width:600px;display:flex;flex-direction:column;gap:10px}
-.tfe-media-title{font-size:15px;font-weight:700;color:var(--tfe-txt,#e0e0e0);margin-bottom:14px;display:flex;justify-content:space-between;align-items:center}
+.tfe-media-box{background:var(--tfe-sur,#141414);border:1px solid var(--tfe-bdr,#2d2d2d);border-radius:14px;padding:14px;width:calc(100vw - 24px);max-width:620px;max-height:calc(100vh - 24px);overflow-y:auto;display:flex;flex-direction:column;gap:8px}
+.tfe-media-title{font-size:15px;font-weight:700;color:var(--tfe-txt,#e0e0e0);margin-bottom:2px;display:flex;justify-content:space-between;align-items:center}
 .tfe-media-section{margin-bottom:0}
-.tfe-media-card{background:var(--tfe-sur2,#1e1e1e);border:1px solid var(--tfe-bdr,#2d2d2d);border-radius:10px;padding:14px 16px}
+.tfe-media-card{background:var(--tfe-sur2,#1e1e1e);border:1px solid var(--tfe-bdr,#2d2d2d);border-radius:10px;padding:10px 14px}
 .tfe-media-card--url{border-left:3px solid var(--tfe-acc,#4f8ef7)}
 .tfe-media-card--upload{border-left:3px solid #4caf50}
 .tfe-media-card--path{border-left:3px solid #f7c94f}
@@ -119,15 +118,15 @@
 .tfe-media-btn{background:var(--tfe-acc,#4f8ef7);border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:700;padding:10px 16px;cursor:pointer;white-space:nowrap}
 .tfe-media-btn-sec{background:var(--tfe-sur2,#1e1e1e);border:1px solid var(--tfe-bdr,#2d2d2d);border-radius:8px;color:var(--tfe-txt,#e0e0e0);font-size:14px;font-weight:600;padding:10px 16px;cursor:pointer;flex:1}
 .tfe-media-btn-sec:hover{border-color:var(--tfe-acc,#4f8ef7);color:var(--tfe-acc,#4f8ef7)}
-.tfe-media-radio{display:flex;gap:0;margin-bottom:4px;background:var(--tfe-sur2,#1e1e1e);border:1px solid var(--tfe-bdr,#2d2d2d);border-radius:10px;padding:4px;overflow:hidden}
+.tfe-media-radio{display:flex;gap:0;margin-bottom:0;background:var(--tfe-sur2,#1e1e1e);border:1px solid var(--tfe-bdr,#2d2d2d);border-radius:10px;padding:4px;overflow:hidden}
 .tfe-media-radio label{display:flex;align-items:center;justify-content:center;gap:7px;font-size:14px;font-weight:600;color:var(--tfe-mut,#888);cursor:pointer;padding:9px 0;border-radius:7px;transition:all .2s;flex:1}
 .tfe-media-radio label:hover{color:var(--tfe-txt,#e0e0e0)}
 .tfe-media-radio input[type=radio]{display:none}
 .tfe-media-radio label.tfe-radio-selected{background:var(--tfe-acc,#4f8ef7);color:#fff;box-shadow:0 2px 8px rgba(79,142,247,.35)}
-.tfe-media-title{font-size:15px;font-weight:700;color:var(--tfe-txt,#e0e0e0);margin-bottom:14px;display:flex;justify-content:space-between;align-items:center}
+.tfe-media-title{font-size:15px;font-weight:700;color:var(--tfe-txt,#e0e0e0);margin-bottom:2px;display:flex;justify-content:space-between;align-items:center}
 .tfe-media-divider{display:none}
 .tfe-media-close{background:none;border:none;color:var(--tfe-mut,#888);font-size:18px;cursor:pointer;padding:0;line-height:1}
-.tfe-media-files{display:flex;flex-direction:column;gap:4px;max-height:220px;overflow-y:auto;margin-top:8px}
+.tfe-media-files{display:flex;flex-direction:column;gap:4px;max-height:clamp(120px,26vh,220px);overflow-y:auto;margin-top:8px;padding-bottom:4px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 .tfe-media-file-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer;background:var(--tfe-sur,#141414);border:1px solid transparent;transition:all .15s}
 .tfe-media-file-row:hover{border-color:var(--tfe-acc,#4f8ef7);background:rgba(79,142,247,.06)}
 .tfe-media-file-row.tfe-file-selected{border-color:var(--tfe-acc,#4f8ef7);background:rgba(79,142,247,.12)}
@@ -145,6 +144,8 @@
 .tfe-media-label-input:focus{border-color:var(--tfe-acc,#4f8ef7)}
 .tfe-media-label-input::placeholder{color:var(--tfe-mut,#888)}
 .tfe-media-label-row{display:flex;flex-direction:column;gap:4px;margin-top:6px}
+.tfe-media-label-row--hidden-label{gap:0}
+.tfe-media-label-row--hidden-label label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .tfe-media-label-row label{font-size:11px;color:var(--tfe-mut,#888);font-weight:600;letter-spacing:.03em}
 .tfe-media-label-input{width:100%;background:var(--tfe-sur2,#1e1e1e);border:1.5px solid var(--tfe-bdr,#2d2d2d);border-radius:7px;color:var(--tfe-txt,#e0e0e0);padding:7px 10px;font-size:13px;outline:none;transition:border-color .15s}
 .tfe-media-label-input:focus{border-color:var(--tfe-acc,#4f8ef7)}
@@ -169,16 +170,16 @@
 .tfe-url-wrap{display:inline-flex;align-items:center;gap:4px}
 .tfe-preview-btn{background:var(--tfe-sur2,#1e1e1e);border:1px solid var(--tfe-bdr,#2d2d2d);border-radius:4px;font-size:11px;cursor:pointer;padding:1px 5px;color:var(--tfe-mut,#888);flex-shrink:0}
 .tfe-block-wrap{position:relative;margin:4px 0}
-.tfe-block-wrap .tfe-del-btn{position:absolute;top:6px;right:6px;width:26px;height:26px;background:rgba(226,75,74,.85);border:1.5px solid rgba(226,75,74,.9);border-radius:50%;color:#fff;font-size:13px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;z-index:20;opacity:0;visibility:hidden;transition:opacity .2s,visibility .2s;pointer-events:none}
+.tfe-block-wrap .tfe-del-btn{position:absolute;top:6px;right:6px;width:26px;height:26px;background:rgba(226,75,74,.9);border:1.5px solid rgba(226,75,74,1);border-radius:50%;color:#fff;font-size:13px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;z-index:30;opacity:1;visibility:visible;transition:background .15s,transform .15s;pointer-events:auto}
 .tfe-block-wrap:hover .tfe-del-btn,.tfe-block-wrap:focus-within .tfe-del-btn{opacity:1;visibility:visible;pointer-events:auto}
 .tfe-block-wrap .tfe-del-btn:hover{background:rgba(226,75,74,1);transform:scale(1.1)}
 .tfe-touch .tfe-block-wrap .tfe-del-btn{opacity:1;visibility:visible;pointer-events:auto}
 .tfe-editor{padding-left:26px !important}
-.tfe-line-del{position:absolute;top:4px;right:4px;left:auto;transform:none;width:22px;height:22px;background:rgba(226,75,74,.85);border:1.5px solid rgba(226,75,74,.9);border-radius:50%;color:#fff;font-size:11px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;z-index:20;opacity:0;visibility:hidden;transition:opacity .2s,visibility .2s;pointer-events:none}
+.tfe-line-del{position:absolute;top:4px;right:4px;left:auto;transform:none;width:22px;height:22px;background:rgba(226,75,74,.9);border:1.5px solid rgba(226,75,74,1);border-radius:50%;color:#fff;font-size:11px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;z-index:30;opacity:1;visibility:visible;transition:background .15s,transform .15s;pointer-events:auto}
 .tfe-editor h1:hover>.tfe-line-del,.tfe-editor h2:hover>.tfe-line-del,.tfe-editor h3:hover>.tfe-line-del,.tfe-editor h4:hover>.tfe-line-del,.tfe-editor ul:hover>.tfe-line-del,.tfe-editor ol:hover>.tfe-line-del,.tfe-editor blockquote:hover>.tfe-line-del,.tfe-editor h1>.tfe-line-del:hover,.tfe-editor h2>.tfe-line-del:hover,.tfe-editor h3>.tfe-line-del:hover,.tfe-editor ul>.tfe-line-del:hover,.tfe-editor ol>.tfe-line-del:hover,.tfe-editor blockquote>.tfe-line-del:hover{opacity:1;visibility:visible;pointer-events:auto}
 .tfe-line-del:hover{background:rgba(226,75,74,.35)}
 .tfe-touch .tfe-editor h1>.tfe-line-del,.tfe-touch .tfe-editor h2>.tfe-line-del,.tfe-touch .tfe-editor h3>.tfe-line-del,.tfe-touch .tfe-editor h4>.tfe-line-del,.tfe-touch .tfe-editor ul>.tfe-line-del,.tfe-touch .tfe-editor ol>.tfe-line-del,.tfe-touch .tfe-editor blockquote>.tfe-line-del{opacity:1;visibility:visible;pointer-events:auto}
-.tfe-editor p,.tfe-editor h1,.tfe-editor h2,.tfe-editor h3,.tfe-editor h4,.tfe-editor li,.tfe-editor blockquote{position:relative}
+.tfe-editor p,.tfe-editor h1,.tfe-editor h2,.tfe-editor h3,.tfe-editor h4,.tfe-editor ul,.tfe-editor ol,.tfe-editor li,.tfe-editor blockquote{position:relative}
 #tfe-sel-del{position:fixed;z-index:99999;background:#e24b4a;border:none;border-radius:6px;color:#fff;font-size:12px;font-weight:700;padding:4px 10px;cursor:pointer;display:none;box-shadow:0 2px 8px rgba(0,0,0,.4);pointer-events:auto}
 #tfe-sel-del:hover{background:#c0392b}
 .tfe-btn.tfe-btn--active{background:var(--tfe-acc,#4f8ef7);color:#fff;border-color:var(--tfe-acc,#4f8ef7)}
@@ -190,8 +191,8 @@
 @keyframes tfe-blink{0%,100%{opacity:1}50%{opacity:0}}
 .tfe-mark-line{background:rgba(79,142,247,.06)}
 .tfe-editor ::selection{background:rgba(79,142,247,.35);color:inherit}
-.tfe-md-group{position:relative;border-left:2px solid rgba(79,142,247,.2);padding-left:4px;margin:4px 0}
-.tfe-md-group-del{position:absolute;top:4px;left:-22px;width:18px;height:18px;background:rgba(226,75,74,.15);border:1px solid rgba(226,75,74,.4);border-radius:50%;color:#e24b4a;font-size:11px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;z-index:10;opacity:0;visibility:hidden;transition:opacity .15s,visibility .15s,background .15s;pointer-events:none}
+.tfe-md-group{position:relative;border-left:2px solid rgba(79,142,247,.2);padding-left:28px;margin:4px 0}
+.tfe-md-group-del{position:absolute;top:4px;left:4px;width:20px;height:20px;background:rgba(226,75,74,.9);border:1.5px solid rgba(226,75,74,1);border-radius:50%;color:#fff;font-size:11px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;z-index:30;opacity:1;visibility:visible;transition:background .15s,transform .15s;pointer-events:auto}
 .tfe-md-group:hover>.tfe-md-group-del{opacity:1;visibility:visible;pointer-events:auto}
 .tfe-touch .tfe-md-group>.tfe-md-group-del{opacity:1;visibility:visible;pointer-events:auto}
 .tfe-save-bar{display:flex;justify-content:flex-end;padding:8px 0 0}
@@ -216,6 +217,13 @@
   // ── Helpers ────────────────────────────────────────────────────────────────
   function _esc(s) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+
+  var _scriptSrc = (typeof document !== 'undefined' && document.currentScript && document.currentScript.src) || '';
+  function _assetUrl(path) {
+    var base = globalThis.TinyEditorAssetBase || _scriptSrc || (typeof document !== 'undefined' ? document.baseURI : '');
+    try { return new URL(path, base).href; }
+    catch (e) { return path; }
   }
 
   // ── Main class ─────────────────────────────────────────────────────────────
@@ -308,7 +316,16 @@
     });
     ed.addEventListener('input', () => this._onInput());
     ed.addEventListener('paste', (e) => this._onPaste(e));
+    ed.addEventListener('beforeinput', (e) => this._onBeforeInput(e));
     ed.addEventListener('keydown', (e) => this._onKeyDown(e));
+    ed.addEventListener('click', (e) => this._onEditorClick(e));
+    ed.addEventListener('touchend', (e) => this._onEditorClick(e));
+    ed.addEventListener('mousedown', (e) => {
+      if (e.target && e.target.closest && e.target.closest('.tfe-del-btn,.tfe-line-del,.tfe-md-group-del')) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    });
     wrap.appendChild(ed);
     this._ed = ed;
 
@@ -342,11 +359,14 @@
     this._startMarker = null;
     this._startMarkerBlock = null;
     this._markBtn = null; // lazily found in _updateMarkerBtn
+    this._refreshValueFlags();
     this._updateSize();
     this._initSelectionDelete();
     this._addLineDelButtons();
     this._initSelectionWatcher();
     this._initMobileToolbar();
+    this._schedulePdfJsPreload();
+    setTimeout(() => this._renderAllPdfs(), 80);
     // Add touch class so CSS can show del buttons without hover
     if (('ontouchstart' in window) || (navigator.maxTouchPoints > 0)) {
       wrap.classList.add('tfe-touch');
@@ -386,6 +406,32 @@
   };
 
   // ── Keyboard shortcuts ─────────────────────────────────────────────────────
+  TinyEditor.prototype._onEditorClick = function (e) {
+    var btn = e.target && e.target.closest &&
+      e.target.closest('.tfe-del-btn,.tfe-line-del,.tfe-md-group-del');
+    if (!btn || !this._ed.contains(btn)) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    var target = null;
+    if (btn.classList.contains('tfe-md-group-del')) {
+      target = btn.closest('.tfe-md-group');
+    } else if (btn.classList.contains('tfe-line-del')) {
+      target = btn.parentElement;
+    } else {
+      target = btn.closest('.tfe-block-wrap') || btn.parentElement;
+    }
+
+    if (target && target !== this._ed && this._ed.contains(target)) {
+      target.remove();
+      this._markValueDirty();
+      this._scheduleLineDelSync();
+      this._updateSize();
+      if (typeof this.opts.onChange === 'function') this.opts.onChange(this._ed.innerHTML);
+    }
+  };
+
   TinyEditor.prototype._onKeyDown = function (e) {
     var self = this;
 
@@ -393,6 +439,12 @@
     var sel = window.getSelection();
     var anchor = sel && sel.anchorNode;
     var cell = anchor && (anchor.nodeType === 3 ? anchor.parentElement : anchor).closest('td,th');
+
+    if (this._startMarker && sel && sel.rangeCount && this._ed.contains(sel.anchorNode)) {
+      e.preventDefault();
+      this._cancelStartMarkerFromKeyboard();
+      return;
+    }
 
     // ── Guard Backspace/Delete against eating line-del button ───────────────
     if ((e.key === 'Backspace' || e.key === 'Delete') && !cell) {
@@ -490,6 +542,18 @@
       }
     }
 
+    if (e.key === 'Delete' && sel && sel.rangeCount && this._ed.contains(sel.anchorNode)) {
+      e.preventDefault();
+      this._deleteSelection();
+      return;
+    }
+
+    if (e.key === 'Backspace' && sel && sel.rangeCount && this._ed.contains(sel.anchorNode)) {
+      e.preventDefault();
+      this._backspaceSelection();
+      return;
+    }
+
     if (e.ctrlKey || e.metaKey) {
       if (e.key === 'b') { e.preventDefault(); this._tbAction('bold'); }
       if (e.key === 'i') { e.preventDefault(); this._tbAction('italic'); }
@@ -502,6 +566,32 @@
     }
     // Live markdown shortcuts
     this._checkMarkdownShortcut(e);
+  };
+
+  TinyEditor.prototype._onBeforeInput = function (e) {
+    if (this._startMarker) {
+      e.preventDefault();
+      this._cancelStartMarkerFromKeyboard();
+      return;
+    }
+
+    if (!e || e.inputType !== 'deleteContentBackward') return;
+    var sel = window.getSelection();
+    if (!sel || !sel.rangeCount || !this._ed.contains(sel.anchorNode)) return;
+
+    var anchor = sel.anchorNode;
+    var anchorEl = anchor.nodeType === 3 ? anchor.parentElement : anchor;
+    if (anchorEl && anchorEl.closest && anchorEl.closest('td,th')) return;
+
+    var range = sel.getRangeAt(0);
+    if (!range.collapsed) return;
+
+    var atomic = this._findPreviousAtomicBlock(range);
+    if (!atomic) return;
+
+    e.preventDefault();
+    atomic.remove();
+    this._afterNativeDelete();
   };
 
   // ── Indent / Outdent ──────────────────────────────────────────────────────────
@@ -546,6 +636,7 @@
 
   // ── Size indicator ─────────────────────────────────────────────────────────
   TinyEditor.prototype._updateSize = function () {
+    this._markValueDirty();
     // Use string length as byte approximation (O(1) vs Blob constructor)
     // Accurate for ASCII; ~1.5x for UTF-8 heavy content — good enough for progress indicator
     var bytes = this._ed.innerHTML.length;
@@ -559,7 +650,7 @@
 
   // ── Save ───────────────────────────────────────────────────────────────────
   TinyEditor.prototype._save = function () {
-    const html = this._ed.innerHTML;
+    const html = this.getValue();
     const size = html.length; // fast approximation — same as _updateSize
     if (size > this.opts.maxSize) {
       alert('Note too large. Max size: ' + Math.round(this.opts.maxSize / 1024) + 'KB');
@@ -571,27 +662,63 @@
   };
 
   // ── Get / Set value ────────────────────────────────────────────────────────
+  TinyEditor.prototype._refreshValueFlags = function () {
+    if (!this._ed) return;
+    var html = this._ed.innerHTML || '';
+    this._hasEditorUi = html.indexOf('tfe-line-del') !== -1 ||
+      html.indexOf('tfe-del-btn') !== -1 ||
+      html.indexOf('tfe-md-group-del') !== -1 ||
+      html.indexOf('tfe-start-marker') !== -1 ||
+      html.indexOf('data-tfe-marker') !== -1;
+    this._hasPdfEmbeds = html.indexOf('tfe-pdf-wrap') !== -1 && html.indexOf('data-pdf-src') !== -1;
+    this._hasMdGroups = html.indexOf('tfe-md-group') !== -1;
+  };
+
+  TinyEditor.prototype._markValueDirty = function () {
+    this._valueFlagsDirty = true;
+  };
+
   TinyEditor.prototype.getValue = function () {
-    // Fast path: if no UI elements present (common case), return innerHTML directly
     var ed = this._ed;
-    if (!ed.querySelector('.tfe-line-del,.tfe-del-btn,.tfe-md-group-del,.tfe-start-marker')) {
-      return ed.innerHTML;
+    if (this._valueFlagsDirty) {
+      this._refreshValueFlags();
+      this._valueFlagsDirty = false;
     }
+    // Fast path: feature flags let clean content skip DOM queries.
+    if (!this._hasEditorUi && !this._hasPdfEmbeds) return ed.innerHTML;
+
     // Slow path: clone + strip UI-only elements
     var clone = ed.cloneNode(true);
     clone.querySelectorAll(
       '.tfe-start-marker,[data-tfe-marker],.tfe-line-del,.tfe-del-btn,.tfe-md-group-del'
     ).forEach(function(el){ el.remove(); });
+    clone.querySelectorAll('.tfe-pdf-wrap[data-pdf-src]').forEach(function(wrap) {
+      var label = wrap.getAttribute('data-pdf-label') || 'Loading PDF...';
+      wrap.removeAttribute('data-pdf-loaded');
+      wrap.innerHTML = '<div class="tfe-pdf-loading">&#128209; ' + _esc(label) + '</div>';
+    });
     return clone.innerHTML;
   };
 
   TinyEditor.prototype.setValue = function (html) {
+    if (this._startMarker) this._clearStartMarker();
     this._ed.innerHTML = html || '';
+    this._refreshValueFlags();
+    this._valueFlagsDirty = false;
     this._updateSize();
+    this._renderAllPdfs();
+    this._scheduleLineDelSync();
   };
 
   TinyEditor.prototype.focus = function () {
     this._ed.focus();
+  };
+
+  TinyEditor.prototype.setReadOnly = function (isReadOnly) {
+    if (isReadOnly && this._startMarker) this._clearStartMarker();
+    if (this._ed) this._ed.contentEditable = isReadOnly ? 'false' : 'true';
+    if (this._wrap) this._wrap.classList.toggle('tfe-readonly', !!isReadOnly);
+    return this;
   };
 
   // ── Live Markdown Shortcuts ──────────────────────────────────────────────────
@@ -773,6 +900,8 @@
 
     this._startMarker = marker;
     this._startMarkerBlock = marker.closest('p,h1,h2,h3,h4,li,blockquote,div');
+    this._hasEditorUi = true;
+    this._valueFlagsDirty = false;
 
     // Update 📍 button → active blue
     this._updateMarkerBtn(true);
@@ -781,6 +910,7 @@
     var r2 = document.createRange();
     r2.setStartAfter(marker);
     r2.collapse(true);
+    this._markerCursorRange = r2.cloneRange();
     sel.removeAllRanges();
     sel.addRange(r2);
 
@@ -799,6 +929,8 @@
     if (!this._ed.contains(sel.anchorNode)) return;
 
     var curRange = sel.getRangeAt(0);
+    this._markerCursorRange = curRange.cloneRange();
+    this._markerCursorRange.collapse(false);
 
     // Build selection range: from after marker → to current cursor
     try {
@@ -825,7 +957,7 @@
     } catch(e) {}
   };
 
-  TinyEditor.prototype._clearStartMarker = function () {
+  TinyEditor.prototype._clearStartMarker = function (restoreRange) {
     // Remove selection listener
     if (this._markerSelListener) {
       document.removeEventListener('selectionchange', this._markerSelListener);
@@ -838,12 +970,36 @@
     this._startMarker = null;
     this._startMarkerBlock = null;
     this._markerHighlightRange = null;
+    this._markerCursorRange = null;
+    this._markValueDirty();
     // Clear browser selection
     var sel = window.getSelection();
-    if (sel) sel.removeAllRanges();
+    if (sel) {
+      sel.removeAllRanges();
+      if (restoreRange) {
+        try {
+          restoreRange.collapse(false);
+          sel.addRange(restoreRange);
+        } catch(e) {}
+      }
+    }
     // Reset buttons
     this._updateMarkerBtn(false);
     this._updateDeleteBtn(false);
+  };
+
+  TinyEditor.prototype._cancelStartMarkerFromKeyboard = function () {
+    if (!this._startMarker) return;
+    var restoreRange = this._markerCursorRange ? this._markerCursorRange.cloneRange() : null;
+    if (!restoreRange) {
+      var sel = window.getSelection();
+      if (sel && sel.rangeCount) {
+        restoreRange = sel.getRangeAt(0).cloneRange();
+        restoreRange.collapse(false);
+      }
+    }
+    this._clearStartMarker(restoreRange);
+    this._ed.focus();
   };
 
   TinyEditor.prototype._updateMarkerBtn = function (active) {
@@ -869,12 +1025,9 @@
   TinyEditor.prototype._deleteSelection = function () {
     var sel = window.getSelection();
 
-    // Case 1: Marker is set — delete the highlighted range
     if (this._startMarker) {
       var delSel = window.getSelection();
       var useRange = null;
-
-      // Prefer live browser selection (set by _highlightMarkerRange)
       if (delSel && !delSel.isCollapsed && this._ed.contains(delSel.anchorNode)) {
         useRange = delSel.getRangeAt(0).cloneRange();
       } else if (this._markerHighlightRange) {
@@ -882,21 +1035,12 @@
       }
 
       if (useRange && !useRange.collapsed) {
-        // Remove marker node from DOM first (it may be inside the range)
         if (this._startMarker && this._startMarker.parentNode) {
           this._startMarker.remove();
           this._startMarker = null;
         }
-        // Delete the range
-        try { useRange.deleteContents(); } catch(e) {}
-        // Clean up empty blocks
-        Array.from(this._ed.querySelectorAll('p,h1,h2,h3,h4,li')).forEach(function(el) {
-          if (el.textContent.trim() === '' && !el.querySelector('br')) {
-            el.innerHTML = '<br>';
-          }
-        });
+        this._deleteRange(useRange);
         this._clearStartMarker();
-        this._updateSize();
       } else {
         this._clearStartMarker();
         this._showDeleteHint();
@@ -904,113 +1048,74 @@
       return;
     }
 
-    // Case 2: Manual text selection (no marker) → delete it
     if (sel && !sel.isCollapsed && this._ed.contains(sel.anchorNode)) {
-      var range = sel.getRangeAt(0);
-      var startBlock = (range.startContainer.nodeType===3
-        ? range.startContainer.parentElement
-        : range.startContainer).closest('p,h1,h2,h3,h4,li,div,blockquote,pre');
-      var endBlock = (range.endContainer.nodeType===3
-        ? range.endContainer.parentElement
-        : range.endContainer).closest('p,h1,h2,h3,h4,li,div,blockquote,pre');
-
-      if (startBlock !== endBlock) {
-        this._deleteBlockRange(range);
-      } else {
-        range.deleteContents();
-      }
-      this._updateSize();
+      this._deleteRange(sel.getRangeAt(0));
       return;
     }
 
-    // Case 3: Collapsed cursor + no marker → forward delete (like keyboard Delete key)
     if (sel && sel.isCollapsed && this._ed.contains(sel.anchorNode)) {
       this._forwardDelete();
       return;
     }
 
-    // Case 4: Nothing selected/focused — show hint
     this._showDeleteHint();
-    return;
+  };
 
-    // Legacy fallback (kept for compatibility — unreachable)
+  TinyEditor.prototype._backspaceSelection = function () {
+    var sel = window.getSelection();
+
     if (this._startMarker) {
-      if (!sel || !sel.rangeCount) return;
-      var curRange = sel.getRangeAt(0);
-      var self = this;
+      var delSel = window.getSelection();
+      var useRange = null;
+      if (delSel && !delSel.isCollapsed && this._ed.contains(delSel.anchorNode)) {
+        useRange = delSel.getRangeAt(0).cloneRange();
+      } else if (this._markerHighlightRange) {
+        useRange = this._markerHighlightRange.cloneRange();
+      }
 
-      var delRange = document.createRange();
-      try {
-        delRange.setStartAfter(this._startMarker);
-        delRange.setEnd(curRange.endContainer, curRange.endOffset);
-
-        // If cursor is before marker, flip
-        if (delRange.collapsed) {
-          delRange.setStart(curRange.startContainer, curRange.startOffset);
-          delRange.setEndBefore(this._startMarker);
+      if (useRange && !useRange.collapsed) {
+        if (this._startMarker && this._startMarker.parentNode) {
+          this._startMarker.remove();
+          this._startMarker = null;
         }
-
-        if (!delRange.collapsed) {
-          // Find the shared container of start and end
-          var ancestor = delRange.commonAncestorContainer;
-          if (ancestor.nodeType === 3) ancestor = ancestor.parentElement;
-
-          // If both ends are in same block-level element (p, li, etc.) — simple delete
-          var startEl = (delRange.startContainer.nodeType===3
-            ? delRange.startContainer.parentElement : delRange.startContainer);
-          var endEl = (delRange.endContainer.nodeType===3
-            ? delRange.endContainer.parentElement : delRange.endContainer);
-          var startBlock = startEl.closest('p,h1,h2,h3,h4,li,blockquote');
-          var endBlock   = endEl.closest('p,h1,h2,h3,h4,li,blockquote');
-
-          if (startBlock && endBlock && startBlock !== endBlock) {
-            // Multi-block delete — find the common parent container
-            var commonParent = startBlock.parentElement;
-            // Collect blocks between start and end in this container
-            var siblings = Array.from(commonParent.children);
-            var toDelete = [];
-            var inRange = false;
-            for (var k=0; k<siblings.length; k++) {
-              var sib = siblings[k];
-              if (sib === startBlock || sib.contains(this._startMarker)) inRange = true;
-              if (inRange) toDelete.push(sib);
-              if (sib === endBlock) { break; }
-            }
-            // Delete all but keep start (remove text after marker) and end (remove text before cursor)
-            if (toDelete.length > 1) {
-              // Clear text after marker in start block
-              var afterMarker = document.createRange();
-              afterMarker.setStartAfter(this._startMarker);
-              afterMarker.setEnd(startBlock, startBlock.childNodes.length);
-              afterMarker.deleteContents();
-              // Remove middle blocks
-              for (var m=1; m<toDelete.length-1; m++) toDelete[m].remove();
-              // Clear text before cursor in end block
-              var beforeCursor = document.createRange();
-              beforeCursor.setStart(endBlock, 0);
-              beforeCursor.setEnd(curRange.endContainer, curRange.endOffset);
-              beforeCursor.deleteContents();
-              // Merge start and end blocks
-              while (toDelete[toDelete.length-1].firstChild) {
-                startBlock.appendChild(toDelete[toDelete.length-1].firstChild);
-              }
-              if (toDelete[toDelete.length-1].parentNode) toDelete[toDelete.length-1].remove();
-            } else {
-              delRange.deleteContents();
-            }
-          } else {
-            delRange.deleteContents();
-          }
-        }
-      } catch(e) { console.warn('TinyEditor: delete range error', e); }
-
-      this._clearStartMarker();
-      this._updateSize();
+        this._deleteRange(useRange);
+        this._clearStartMarker();
+      } else {
+        this._clearStartMarker();
+        this._showDeleteHint();
+      }
       return;
     }
 
-    // Case 3: Nothing selected or marked — show hint
+    if (sel && !sel.isCollapsed && this._ed.contains(sel.anchorNode)) {
+      this._deleteRange(sel.getRangeAt(0));
+      return;
+    }
+
+    if (sel && sel.isCollapsed && this._ed.contains(sel.anchorNode)) {
+      this._backwardDelete();
+      return;
+    }
+
     this._showDeleteHint();
+  };
+
+  TinyEditor.prototype._deleteRange = function (range) {
+    try { range.deleteContents(); } catch(e) { return false; }
+    var sel = window.getSelection();
+    if (sel) {
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+    this._afterNativeDelete();
+    return true;
+  };
+
+  TinyEditor.prototype._afterNativeDelete = function () {
+    this._syncLineDelButtons();
+    this._detectUrls();
+    this._updateSize();
+    if (typeof this.opts.onChange === 'function') this.opts.onChange(this._ed.innerHTML);
   };
 
   TinyEditor.prototype._deleteBlockRange = function (range) {
@@ -1099,105 +1204,154 @@
 
   // ── Forward delete (like keyboard Delete key) ────────────────────────────
   // Deletes one character/node forward from cursor, handling tag boundaries
+  // Forward delete that stays native-first and only custom-handles atomic editor blocks.
   TinyEditor.prototype._forwardDelete = function () {
-    var self = this;
     var sel = window.getSelection();
     if (!sel || !sel.rangeCount || !this._ed.contains(sel.anchorNode)) return false;
-
     var range = sel.getRangeAt(0);
-    if (!range.collapsed) return false; // has selection — handled by caller
+    if (!range.collapsed) return this._deleteRange(range);
 
-    var node   = range.startContainer;
+    var before = this._ed.innerHTML;
+    try { document.execCommand('forwardDelete', false, null); } catch(e) {}
+    if (this._ed.innerHTML !== before) {
+      this._afterNativeDelete();
+      return true;
+    }
+
+    var atomic = this._findNextAtomicBlock(range);
+    if (atomic) {
+      atomic.remove();
+      this._afterNativeDelete();
+      return true;
+    }
+    return false;
+  };
+
+  TinyEditor.prototype._backwardDelete = function () {
+    var sel = window.getSelection();
+    if (!sel || !sel.rangeCount || !this._ed.contains(sel.anchorNode)) return false;
+    var range = sel.getRangeAt(0);
+    if (!range.collapsed) return this._deleteRange(range);
+
+    var before = this._ed.innerHTML;
+    try { document.execCommand('delete', false, null); } catch(e) {}
+    if (this._ed.innerHTML !== before) {
+      this._afterNativeDelete();
+      return true;
+    }
+
+    var atomic = this._findPreviousAtomicBlock(range);
+    if (atomic) {
+      atomic.remove();
+      this._afterNativeDelete();
+      return true;
+    }
+    return false;
+  };
+
+  TinyEditor.prototype._isEditorUiNode = function (node) {
+    return !!(node && node.nodeType === 1 && node.matches &&
+      node.matches('.tfe-line-del,.tfe-del-btn,.tfe-md-group-del,.tfe-start-marker'));
+  };
+
+  TinyEditor.prototype._atomicRoot = function (node) {
+    if (!node || node.nodeType !== 1) return null;
+    var el = node;
+    if (el.closest) {
+      var wrap = el.closest('.tfe-block-wrap');
+      if (wrap && this._ed.contains(wrap)) return wrap;
+    }
+    if (el.matches && el.matches('[contenteditable="false"],.tfe-preview-card,img,video,iframe,table,pre,.tfe-pdf-wrap')) {
+      return el;
+    }
+    return null;
+  };
+
+  TinyEditor.prototype._nodeAfterCaret = function (range) {
+    var node = range.startContainer;
     var offset = range.startOffset;
-
-    // ── Case A: Inside a text node ──────────────────────────────────────────
     if (node.nodeType === 3) {
-      if (offset < node.length) {
-        // Simple: delete next char in text node
-        var r = document.createRange();
-        r.setStart(node, offset);
-        r.setEnd(node, offset + 1);
-        r.deleteContents();
-        this._updateSize();
-        return true;
-      }
-      // At end of text node — fall through to element-level logic
-      node = node.parentElement;
+      if (offset < node.nodeValue.length) return null;
+    } else if (node.nodeType === 1 && offset < node.childNodes.length) {
+      return node.childNodes[offset];
     }
-
-    // ── Case B: At end of a block — merge with next block ──────────────────
-    var block = (node.nodeType === 1 ? node : node.parentElement)
-                  .closest('p,h1,h2,h3,h4,li,blockquote');
-    if (!block) return false;
-
-    // Find next sibling block in the editor
-    var nextBlock = null;
-    var cur = block;
-    while (cur && !nextBlock) {
-      // Try next sibling
-      var sib = cur.nextElementSibling;
-      while (sib) {
-        // Skip UI-only elements
-        if (sib.classList && (sib.classList.contains('tfe-block-wrap') ||
-            sib.classList.contains('tfe-md-group-del') ||
-            sib.classList.contains('tfe-line-del'))) {
-          sib = sib.nextElementSibling; continue;
-        }
-        var tag = sib.tagName ? sib.tagName.toLowerCase() : '';
-        if (['p','h1','h2','h3','h4','li','blockquote'].includes(tag)) {
-          nextBlock = sib; break;
-        }
-        // Block-wrap (code, table, image): delete the whole wrap
-        if (sib.classList && sib.classList.contains('tfe-block-wrap')) {
-          sib.remove(); self._updateSize(); return true;
-        }
-        sib = sib.nextElementSibling;
-      }
-      if (!nextBlock) cur = cur.parentElement;
-      if (cur === self._ed || !cur) break;
+    while (node && node !== this._ed) {
+      if (node.nextSibling) return node.nextSibling;
+      node = node.parentNode;
     }
+    return null;
+  };
 
-    if (!nextBlock) return false;
-
-    // Check cursor is actually at the END of its block (skip tfe-line-del)
-    var blockText = block.textContent.replace(/\s/g,'');
-    var selText   = '';
-    // Get text from cursor to end of block
-    var endRange = document.createRange();
-    endRange.setStart(range.startContainer, range.startOffset);
-    endRange.setEnd(block, block.childNodes.length);
-    selText = endRange.toString().replace(/\s/g,'');
-
-    if (selText.length > 0) {
-      // Cursor is not at end — delete one char forward within the block
-      // Walk forward to find next text position
-      var walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT, null);
-      var tn = null;
-      // Find the text node containing the cursor
-      while ((tn = walker.nextNode())) {
-        if (tn === range.startContainer || block.contains(tn)) {
-          if (tn === range.startContainer && offset < tn.length) {
-            var r2 = document.createRange();
-            r2.setStart(tn, offset); r2.setEnd(tn, offset+1);
-            r2.deleteContents();
-            self._updateSize(); return true;
-          }
-        }
-      }
-      return false;
+  TinyEditor.prototype._nodeBeforeCaret = function (range) {
+    var node = range.startContainer;
+    var offset = range.startOffset;
+    if (node.nodeType === 3) {
+      if (offset > 0) return null;
+    } else if (node.nodeType === 1 && offset > 0) {
+      return node.childNodes[offset - 1];
     }
+    while (node && node !== this._ed) {
+      if (node.previousSibling) return node.previousSibling;
+      node = node.parentNode;
+    }
+    return null;
+  };
 
-    // Cursor at end of block — merge nextBlock content into current block
-    // Skip line-del button of nextBlock when moving content
-    Array.from(nextBlock.childNodes).forEach(function(child) {
-      if (child.classList && child.classList.contains('tfe-line-del')) return;
-      block.appendChild(child.cloneNode(true));
-    });
-    nextBlock.remove();
+  TinyEditor.prototype._nextDomNode = function (node) {
+    if (!node) return null;
+    if (node.firstChild) return node.firstChild;
+    while (node && node !== this._ed) {
+      if (node.nextSibling) return node.nextSibling;
+      node = node.parentNode;
+    }
+    return null;
+  };
 
-    // Position cursor at the join point (end of original block content)
-    self._updateSize();
-    return true;
+  TinyEditor.prototype._previousDomNode = function (node) {
+    if (!node) return null;
+    if (node.previousSibling) {
+      node = node.previousSibling;
+      while (node && node.lastChild) node = node.lastChild;
+      return node;
+    }
+    if (node.parentNode && node.parentNode !== this._ed) return node.parentNode;
+    return null;
+  };
+
+  TinyEditor.prototype._findNextAtomicBlock = function (range) {
+    var node = this._nodeAfterCaret(range);
+    while (node && this._ed.contains(node)) {
+      if (this._isEditorUiNode(node)) { node = this._nextDomNode(node); continue; }
+      if (node.nodeType === 3) {
+        if (node.nodeValue && node.nodeValue.length) return null;
+        node = this._nextDomNode(node);
+        continue;
+      }
+      var atomic = this._atomicRoot(node);
+      if (atomic) return atomic;
+      var tag = node.nodeType === 1 && node.tagName ? node.tagName.toLowerCase() : '';
+      if (['p','h1','h2','h3','h4','li','blockquote','ul','ol'].indexOf(tag) !== -1) return null;
+      node = this._nextDomNode(node);
+    }
+    return null;
+  };
+
+  TinyEditor.prototype._findPreviousAtomicBlock = function (range) {
+    var node = this._nodeBeforeCaret(range);
+    while (node && this._ed.contains(node)) {
+      if (this._isEditorUiNode(node)) { node = this._previousDomNode(node); continue; }
+      if (node.nodeType === 3) {
+        if (node.nodeValue && node.nodeValue.length) return null;
+        node = this._previousDomNode(node);
+        continue;
+      }
+      var atomic = this._atomicRoot(node);
+      if (atomic) return atomic;
+      var tag = node.nodeType === 1 && node.tagName ? node.tagName.toLowerCase() : '';
+      if (['p','h1','h2','h3','h4','li','blockquote','ul','ol'].indexOf(tag) !== -1) return null;
+      node = this._previousDomNode(node);
+    }
+    return null;
   };
 
   TinyEditor.prototype._showDeleteHint = function () {
@@ -1213,7 +1367,7 @@
   // Wraps any inserted block with a red ✕ delete button on hover
   TinyEditor.prototype._wrapBlock = function (innerHtml) {
     return '<div class="tfe-block-wrap" contenteditable="false">'
-      + '<button class="tfe-del-btn" onclick="this.parentElement.remove()" title="Delete block">&#10005;</button>'
+      + '<button class="tfe-del-btn" contenteditable="false" title="Delete block">&#10005;</button>'
       + innerHtml
       + '</div>';
   };
@@ -1358,13 +1512,35 @@
     if (!self.opts.showToolbar) return;
     // Store observer so it can be disconnected if needed
     if (this._lineDelObserver) this._lineDelObserver.disconnect();
-    this._lineDelObserver = new MutationObserver(function() { self._syncLineDelButtons(); });
+    this._lineDelObserver = new MutationObserver(function() {
+      if (!self._lineDelSyncing) self._scheduleLineDelSync();
+    });
     this._lineDelObserver.observe(this._ed, {childList:true, subtree:false});
     this._syncLineDelButtons();
   };
 
+  TinyEditor.prototype._scheduleLineDelSync = function () {
+    var self = this;
+    if (!self._ed || !self.opts.showToolbar) return;
+    if (self._ed.innerHTML.indexOf('tfe-md-group') === -1) return;
+    if (self._lineDelSyncPending) return;
+    self._lineDelSyncPending = true;
+    var run = function() {
+      self._lineDelSyncPending = false;
+      self._syncLineDelButtons();
+    };
+    if (typeof window.requestAnimationFrame === 'function') window.requestAnimationFrame(run);
+    else setTimeout(run, 16);
+  };
+
   TinyEditor.prototype._syncLineDelButtons = function () {
     var self = this;
+    if (self._lineDelSyncing) return;
+    self._lineDelSyncing = true;
+    if (this._ed.innerHTML.indexOf('tfe-md-group') === -1) {
+      self._lineDelSyncing = false;
+      return;
+    }
 
     // ── Two-level delete structure ─────────────────────────────────────────
     // Level 1: the md-group itself has a group-del button (already added by _wrapMdGroup)
@@ -1398,43 +1574,30 @@
       btn.title = 'Delete line';
       btn.textContent = '✕';
       btn.contentEditable = 'false';
-      var _lineDel = function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        var target = btn.parentElement;
-        if(target && target !== self._ed) {
-          target.remove();
-          self._updateSize();
-        }
-      };
-      btn.addEventListener('click', _lineDel);
-      btn.addEventListener('touchend', _lineDel);
-      btn.addEventListener('mousedown', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-      });
       block.insertBefore(btn, block.firstChild);
       });  // end Array.from(group.children)
     });    // end groups.forEach
+    self._lineDelSyncing = false;
   };
 
   // ── Wrap MD import in deletable group ─────────────────────────────────────
   TinyEditor.prototype._wrapMdGroup = function (html) {
     return '<div class="tfe-md-group" contenteditable="true">'
-      + '<button class="tfe-md-group-del" contenteditable="false" '
-      + 'onclick="this.parentElement.remove()" title="Delete entire import">&#10005;</button>'
+      + '<button class="tfe-md-group-del" contenteditable="false" title="Delete entire import">&#10005;</button>'
       + html + '</div>';
   };
 
   // ── Auto URL detection ─────────────────────────────────────────────────────
   TinyEditor.prototype._detectUrls = function () {
     const ed = this._ed;
+    if (ed.innerHTML.indexOf('http') === -1) return;
     const urlRe = /https?:\/\/[^\s<>"]+/g;
     const walker = document.createTreeWalker(ed, NodeFilter.SHOW_TEXT);
     const nodes = [];
     let node;
     while ((node = walker.nextNode())) {
-      if (node.parentElement.tagName !== 'A' &&
+      if (node.parentElement &&
+          node.parentElement.tagName !== 'A' &&
           !node.parentElement.classList.contains('tfe-url-wrap') &&
           urlRe.test(node.textContent)) {
         nodes.push(node);
@@ -1612,8 +1775,8 @@
     var delBtn = document.createElement('button');
     delBtn.className = 'tfe-del-btn';
     delBtn.title = 'Delete block';
+    delBtn.contentEditable = 'false';
     delBtn.innerHTML = '&#10005;';
-    delBtn.onclick = function() { wrap.remove(); self._updateSize(); };
     wrap.appendChild(delBtn);
     wrap.appendChild(card);
     var span = btn.closest('.tfe-url-wrap') || btn.parentElement;
@@ -1815,27 +1978,66 @@
 
   // ── Media Modal ──────────────────────────────────────────────────────────────
   // ── PDF.js viewer ────────────────────────────────────────────────────────────
-  var PDFJS_CDN = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js';
-  var PDFJS_WORKER = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+  var PDFJS_CDN = _assetUrl('pdfjs/pdf.min.js');
+  var PDFJS_WORKER = _assetUrl('pdfjs/pdf.worker.min.js');
+  var _pdfJsLoading = false;
+  var _pdfJsCallbacks = [];
+
+  function _preloadAsset(url, asType) {
+    if (!url || !document.head || document.querySelector('link[data-tfe-preload="' + url + '"]')) return;
+    var link = document.createElement('link');
+    link.rel = 'preload';
+    link.as = asType || 'script';
+    link.href = url;
+    link.setAttribute('data-tfe-preload', url);
+    document.head.appendChild(link);
+  }
 
   // Load PDF.js once, lazily
   TinyEditor.prototype._loadPdfJs = function (cb) {
     if (window.pdfjsLib) { cb(null, window.pdfjsLib); return; }
+    _pdfJsCallbacks.push(cb);
+    if (_pdfJsLoading) return;
+    _pdfJsLoading = true;
     var script = document.createElement('script');
     script.src = PDFJS_CDN;
     script.onload = function() {
       window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
-      cb(null, window.pdfjsLib);
+      _pdfJsLoading = false;
+      var callbacks = _pdfJsCallbacks.splice(0);
+      callbacks.forEach(function(fn) { fn(null, window.pdfjsLib); });
     };
-    script.onerror = function() { cb(new Error('Failed to load PDF.js')); };
+    script.onerror = function() {
+      _pdfJsLoading = false;
+      var callbacks = _pdfJsCallbacks.splice(0);
+      callbacks.forEach(function(fn) { fn(new Error('Failed to load PDF.js')); });
+    };
     document.head.appendChild(script);
+  };
+
+  TinyEditor.prototype._preloadPdfJs = function () {
+    _preloadAsset(PDFJS_CDN, 'script');
+    _preloadAsset(PDFJS_WORKER, 'script');
+    this._loadPdfJs(function(){});
+  };
+
+  TinyEditor.prototype._schedulePdfJsPreload = function () {
+    var self = this;
+    if (self._pdfPreloadScheduled || window.pdfjsLib) return;
+    self._pdfPreloadScheduled = true;
+    var run = function() { self._preloadPdfJs(); };
+    if (typeof window.requestIdleCallback === 'function') {
+      window.requestIdleCallback(run, { timeout: 2000 });
+    } else {
+      setTimeout(run, 1200);
+    }
   };
 
   // Build the PDF embed HTML shell (canvases filled by _renderPdfJs after insert)
   TinyEditor.prototype._buildPdfEmbed = function (src, label) {
     var id = 'tfe-pdf-' + Date.now();
     return '<div class="tfe-block-wrap" contenteditable="false">'
-      + '<button class="tfe-del-btn" onclick="this.parentElement.remove()" title="Delete PDF">&#10005;</button>'
+      + '<button class="tfe-del-btn" contenteditable="false" title="Delete PDF">&#10005;</button>'
       + '<div class="tfe-pdf-wrap" id="' + id + '" data-pdf-src="' + _esc(src) + '" data-pdf-label="' + _esc(label||'') + '">'
       + '<div class="tfe-pdf-loading">&#128209; ' + _esc(label||'Loading PDF…') + '</div>'
       + '</div></div>';
@@ -1877,21 +2079,29 @@
       }
 
       setMsg('Loading document…', 0.2);
-      var loadingTask = pdfjsLib.getDocument(src);
+      var docSrc = src;
+      if (/^data:application\/pdf/i.test(src)) {
+        var b64 = src.split(',')[1] || '';
+        var bin = atob(b64);
+        var bytes = new Uint8Array(bin.length);
+        for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        docSrc = { data: bytes, disableWorker: true };
+      }
+      var loadingTask = pdfjsLib.getDocument(docSrc);
       loadingTask.promise.then(function(pdf) {
-        setMsg('Rendering…', 0.6);
+        setMsg('Rendering...', 0.6);
         var totalPages = pdf.numPages;
         var currentPage = 1;
         var label = wrap.getAttribute('data-pdf-label') || src.split('/').pop().split('?')[0] || 'document.pdf';
+        var allPages = self.opts.pdfPageMode === 'all' || self.opts.showAllPdfPages === true;
 
-        // Build UI
         spinEl.remove();
         wrap.innerHTML =
-          '<div class="tfe-pdf-canvas-wrap" id="' + wrap.id + '-pages"></div>'
+          '<div class="tfe-pdf-canvas-wrap' + (allPages ? ' tfe-pdf-canvas-wrap--all' : '') + '" id="' + wrap.id + '-pages"></div>'
           + '<div class="tfe-pdf-bar">'
-          + '<button class="tfe-pdf-btn" id="' + wrap.id + '-prev">&#8592; Prev</button>'
-          + '<span id="' + wrap.id + '-info">' + _esc(label) + ' &nbsp;|&nbsp; Page 1 / ' + totalPages + '</span>'
-          + '<button class="tfe-pdf-btn" id="' + wrap.id + '-next">Next &#8594;</button>'
+          + (allPages ? '' : '<button class="tfe-pdf-btn" id="' + wrap.id + '-prev">&#8592; Prev</button>')
+          + '<span id="' + wrap.id + '-info">' + _esc(label) + (allPages ? ' &nbsp;|&nbsp; ' + totalPages + ' pages' : ' &nbsp;|&nbsp; Page 1 / ' + totalPages) + '</span>'
+          + (allPages ? '' : '<button class="tfe-pdf-btn" id="' + wrap.id + '-next">Next &#8594;</button>')
           + '</div>';
 
         var pagesEl = document.getElementById(wrap.id + '-pages');
@@ -1899,75 +2109,86 @@
         var prevBtn = document.getElementById(wrap.id + '-prev');
         var nextBtn = document.getElementById(wrap.id + '-next');
 
+        var getWidth = function() {
+          if (wrap._roWidth) return wrap._roWidth;
+          var el = wrap;
+          while (el && el !== document.body) {
+            var w = el.getBoundingClientRect().width;
+            if (w > 50) return w;
+            el = el.parentElement;
+          }
+          return (document.getElementById('note-ro-view') &&
+                   document.getElementById('note-ro-view').getBoundingClientRect().width)
+              || (window.innerWidth - 32)
+              || 360;
+        };
+
+        var renderCanvas = function(page, targetEl, num) {
+          var containerW = getWidth();
+          var availW = Math.max(200, containerW - 16);
+          var viewport = page.getViewport({scale: 1});
+          var scale = availW / viewport.width;
+          var scaledVP = page.getViewport({scale: Math.max(0.5, Math.min(scale, 4))});
+          var canvas = document.createElement('canvas');
+          canvas.className = 'tfe-pdf-canvas';
+          canvas.dataset.page = String(num);
+          canvas.width = scaledVP.width;
+          canvas.height = scaledVP.height;
+          canvas.style.cssText = 'width:100%;height:auto;display:block;border-radius:4px';
+          targetEl.appendChild(canvas);
+          return page.render({canvasContext: canvas.getContext('2d'), viewport: scaledVP}).promise;
+        };
+
         var renderPage = function(num) {
           currentPage = num;
           prevBtn.disabled = num <= 1;
           nextBtn.disabled = num >= totalPages;
           infoEl.textContent = label + '  |  Page ' + num + ' / ' + totalPages;
-          // Show brief spinner on page change
-          pagesEl.innerHTML = '<div class="tfe-spinner-wrap" style="min-height:60px"><div class="tfe-spinner"></div><div class="tfe-spinner-msg">Rendering page ' + num + '…</div></div>';
-
+          pagesEl.innerHTML = '<div class="tfe-spinner-wrap" style="min-height:60px"><div class="tfe-spinner"></div><div class="tfe-spinner-msg">Rendering page ' + num + '...</div></div>';
           pdf.getPage(num).then(function(page) {
-            // Measure container width — try multiple sources
-            var getWidth = function() {
-              // _roWidth set by Toolfy read-only view renderer
-              if (wrap._roWidth) return wrap._roWidth;
-              // Walk up DOM to find a real width
-              var el = wrap;
-              while (el && el !== document.body) {
-                var w = el.getBoundingClientRect().width;
-                if (w > 50) return w;
-                el = el.parentElement;
-              }
-              return (document.getElementById('note-ro-view') &&
-                       document.getElementById('note-ro-view').getBoundingClientRect().width)
-                  || (window.innerWidth - 32)
-                  || 360;
-            };
-            // If width is 0, element may not be laid out — use rAF to retry once
             var doRender = function() {
-              var containerW = getWidth();
-              var availW = Math.max(200, containerW - 16);
-              var viewport = page.getViewport({scale: 1});
-              var scale = availW / viewport.width;
-              var scaledVP = page.getViewport({scale: Math.max(0.5, Math.min(scale, 4))});
-
-              var canvas = document.createElement('canvas');
-              canvas.className = 'tfe-pdf-canvas';
-              canvas.width  = scaledVP.width;
-              canvas.height = scaledVP.height;
-
-              // Clear spinner and append canvas BEFORE rendering
               pagesEl.innerHTML = '';
-              // CSS width:100% makes canvas fill container visually regardless of pixel size
-              canvas.style.cssText = 'width:100%;height:auto;display:block;border-radius:4px';
-              pagesEl.appendChild(canvas);
-
-              // Await render promise — prevents white flash
-              var ctx = canvas.getContext('2d');
-              var renderTask = page.render({canvasContext: ctx, viewport: scaledVP});
-              renderTask.promise.then(function() {
-                // Mark loaded only after render fully completes
+              renderCanvas(page, pagesEl, num).then(function() {
                 if (num === currentPage) wrap.setAttribute('data-pdf-loaded', '1');
               }).catch(function(err) {
                 if (err && err.name !== 'RenderingCancelledException') {
-                  canvas.style.background = '#fff';
+                  wrap.innerHTML = '<div class="tfe-pdf-error">&#9888; ' + _esc(err.message || 'Failed to render PDF') + '</div>';
                 }
               });
             };
-
-            if (getWidth() === 0) {
-              requestAnimationFrame(function() { requestAnimationFrame(doRender); });
-            } else {
-              doRender();
-            }
+            if (getWidth() === 0) requestAnimationFrame(function() { requestAnimationFrame(doRender); });
+            else doRender();
           });
         };
 
-        prevBtn.onclick = function() { if (currentPage > 1) renderPage(currentPage - 1); };
-        nextBtn.onclick = function() { if (currentPage < totalPages) renderPage(currentPage + 1); };
+        var renderAllPages = function() {
+          pagesEl.innerHTML = '';
+          var chain = Promise.resolve();
+          for (var n = 1; n <= totalPages; n++) {
+            (function(pageNum) {
+              chain = chain.then(function() {
+                setMsg('Rendering page ' + pageNum + ' of ' + totalPages + '...', 0.6 + (pageNum / totalPages) * 0.4);
+                return pdf.getPage(pageNum).then(function(page) {
+                  return renderCanvas(page, pagesEl, pageNum);
+                });
+              });
+            })(n);
+          }
+          chain.then(function() {
+            infoEl.textContent = label + '  |  ' + totalPages + ' pages';
+            wrap.setAttribute('data-pdf-loaded', '1');
+          }).catch(function(err) {
+            wrap.innerHTML = '<div class="tfe-pdf-error">&#9888; ' + _esc(err.message || 'Failed to render PDF') + '</div>';
+          });
+        };
 
-        renderPage(1);
+        if (allPages) {
+          renderAllPages();
+        } else {
+          prevBtn.onclick = function() { if (currentPage > 1) renderPage(currentPage - 1); };
+          nextBtn.onclick = function() { if (currentPage < totalPages) renderPage(currentPage + 1); };
+          renderPage(1);
+        }
 
       }).catch(function(err) {
         wrap.innerHTML = '<div class="tfe-pdf-error">&#9888; ' + _esc(err.message || 'Failed to load PDF') + '</div>';
@@ -2018,15 +2239,6 @@
       +   '<span class="tfe-doc-card-badge">.html</span>'
       + '</div>'
 
-      // PDF card — embeds PDF as iframe viewer
-      + '<div class="tfe-doc-card tfe-doc-card--pdf" id="tfe-doc-pdf">'
-      +   '<div class="tfe-doc-card-icon">&#128209;</div>'
-      +   '<div class="tfe-doc-card-info">'
-      +     '<div class="tfe-doc-card-name">PDF File</div>'
-      +     '<div class="tfe-doc-card-desc">Embed a .pdf file inline — renders as a scrollable PDF viewer</div>'
-      +   '</div>'
-      +   '<span class="tfe-doc-card-badge">.pdf</span>'
-      + '</div>'
 
       + '</div>';
 
@@ -2048,11 +2260,6 @@
       self._file_html.click();
     };
 
-    // PDF — embed as iframe
-    document.getElementById('tfe-doc-pdf').onclick = function() {
-      close();
-      self._file_pdf.click();
-    };
   };
 
   // ── Client-side compression helpers ─────────────────────────────────────────
@@ -2228,6 +2435,7 @@
     var self = this;
     var existing = document.getElementById('tfe-media-modal');
     if (existing) existing.remove();
+    this._preloadPdfJs();
 
     var opts = this.opts;
     var showUrl    = opts.showMediaUrl    !== false;
@@ -2238,15 +2446,13 @@
     // Build cards HTML
     var urlCard = showUrl ? (
       '<div class="tfe-media-card tfe-media-card--url">'
-      + '<div class="tfe-media-label" style="display:flex;align-items:center;gap:6px">'
-      + '<span style="font-size:15px">&#128279;</span> URL &mdash; IMAGE, VIDEO OR EMBED</div>'
       + '<div class="tfe-media-row">'
       + '<input class="tfe-media-input" id="tfe-mc-url" placeholder="Paste any URL..." autocomplete="off">'
       + '<button class="tfe-media-btn" id="tfe-mc-embed">Insert</button>'
       + '</div>'
-      + '<div class="tfe-media-label-row">'
+      + '<div class="tfe-media-label-row tfe-media-label-row--hidden-label">'
       + '<label for="tfe-mc-url-label">Label / display name <span style="color:#e24b4a">*</span></label>'
-      + '<input class="tfe-media-label-input" id="tfe-mc-url-label" placeholder="e.g. Company Logo, Demo Video..." autocomplete="off">'
+      + '<input class="tfe-media-label-input" id="tfe-mc-url-label" placeholder="Display name *" autocomplete="off">'
       + '</div>'
       /* Override buttons — hidden until auto-detect is uncertain */
       + '<div id="tfe-mc-overrides" style="display:none;gap:6px;margin-top:8px;flex-wrap:wrap">'
@@ -2256,23 +2462,18 @@
       + '<button class="tfe-media-btn-sec" id="tfe-mc-pdf" style="flex:1;min-width:80px">&#128209; PDF</button>'
       + '<button class="tfe-media-btn-sec" id="tfe-mc-other" style="flex:1;min-width:80px">&#128279; Link</button>'
       + '</div>'
-      + '<div style="font-size:12px;color:var(--tfe-mut,#888);margin-top:8px;line-height:1.7">'
-      + '&#127916;&nbsp;YouTube &middot; Vimeo &middot; Facebook &middot; Instagram &middot; Twitter/X<br>'
-      + '&#128444;&nbsp;.jpg .png .gif .webp &nbsp;&#127916;&nbsp;.mp4 .webm &nbsp;&#128209;&nbsp;.pdf'
-      + '</div></div>'
+      + '</div>'
     ) : '';
 
     var uploadCard = showUpload ? (
       '<div class="tfe-media-card tfe-media-card--upload">'
-      + '<div class="tfe-media-label" style="display:flex;align-items:center;gap:6px">'
-      + '<span style="font-size:15px">&#128193;</span> UPLOAD FILE</div>'
-      + '<div class="tfe-media-label-row">'
+      + '<div class="tfe-media-label-row tfe-media-label-row--hidden-label" style="margin-top:0">'
       + '<label for="tfe-mc-upload-label">Label / display name <span style="color:#e24b4a">*</span></label>'
-      + '<input class="tfe-media-label-input" id="tfe-mc-upload-label" placeholder="e.g. Product Photo, Intro Video..." autocomplete="off">'
+      + '<input class="tfe-media-label-input" id="tfe-mc-upload-label" placeholder="Upload display name *" autocomplete="off">'
       + '</div>'
-      + '<label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--tfe-mut,#888);cursor:pointer;padding:2px 0 6px;user-select:none">'
+      + '<label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--tfe-mut,#888);cursor:pointer;padding:0 0 6px;user-select:none">'
       + '<input type="checkbox" id="tfe-mc-compress" checked style="width:14px;height:14px;accent-color:var(--tfe-acc,#4f8ef7);cursor:pointer">'
-      + '&#9889; Auto-compress if necessary</label>'
+      + '&#9889; Compress</label>'
       + '<div class="tfe-media-row">'
       + '<button class="tfe-media-btn-sec" id="tfe-mc-img-upload">&#128444;&nbsp; Image</button>'
       + '<button class="tfe-media-btn-sec" id="tfe-mc-vid-upload">&#127916;&nbsp; Video</button>'
@@ -2953,12 +3154,11 @@
       };
       reader.readAsDataURL(file);
     } else if (type === 'md') {
-    } else if (type === 'md') {
       reader.onload = function (ev) {
         var mdHtml = self._mdToHtml(ev.target.result);
         self._insertHtmlAtCursor(self._wrapMdGroup(mdHtml));
         self._updateSize();
-        setTimeout(function() { self._syncLineDelButtons(); }, 100);
+        self._scheduleLineDelSync();
       };
       reader.readAsText(file);
     } else if (type === 'html') {
@@ -2966,7 +3166,7 @@
         var cleanHtml = self._sanitizeHtml(ev.target.result);
         self._insertHtmlAtCursor(self._wrapMdGroup(cleanHtml));
         self._updateSize();
-        setTimeout(function() { self._syncLineDelButtons(); }, 100);
+        self._scheduleLineDelSync();
       };
       reader.readAsText(file);
     } else if (type === 'pdf') {
@@ -2978,11 +3178,9 @@
       }
       // Local fallback: blob URL (session-only — PDF won't persist after page reload)
       reader.onload = function (ev) {
-        var blob = new Blob([ev.target.result], {type: 'application/pdf'});
-        var blobUrl = URL.createObjectURL(blob);
         var pdfLabel = self._pendingUploadLabel || file.name || 'document.pdf';
         self._pendingUploadLabel = '';
-        var html = self._buildPdfEmbed(blobUrl, pdfLabel);
+        var html = self._buildPdfEmbed(ev.target.result, pdfLabel);
         self._insertHtmlAtCursor(html);
         self._updateSize();
         setTimeout(function() {
@@ -2990,7 +3188,7 @@
           if (wrap) self._renderPdfJs(wrap);
         }, 300);
       };
-      reader.readAsArrayBuffer(file);
+      reader.readAsDataURL(file);
     }
     e.target.value = '';
   };
@@ -3029,7 +3227,8 @@
     } else {
       nodes.forEach(function(n){ self._ed.appendChild(n); });
     }
-    setTimeout(function(){ self._syncLineDelButtons(); }, 80);
+    self._markValueDirty();
+    self._scheduleLineDelSync();
   };
 
   // ── Markdown → HTML ────────────────────────────────────────────────────────
@@ -3051,7 +3250,7 @@
       var blockHtml = '<pre style="' + PRE_STYLE + '">' + langLabel
         + '<code style="' + CODE_STYLE + '">' + escaped + '</code></pre>';
       var html = '<div class="tfe-block-wrap" contenteditable="false">'
-        + '<button class="tfe-del-btn" onclick="this.parentElement.remove()" title="Delete block">&#10005;</button>'
+        + '<button class="tfe-del-btn" contenteditable="false" title="Delete block">&#10005;</button>'
         + blockHtml + '</div>';
       blocks.push(html);
       return '\x00CODE' + (blocks.length-1) + '\x00';
@@ -3066,7 +3265,7 @@
         return '<tr>'+tds+'</tr>';
       }).join('');
       return '<div class="tfe-block-wrap" contenteditable="true" style="outline:none">'
-        + '<button class="tfe-del-btn" contenteditable="false" onclick="this.parentElement.remove()" title="Delete block">&#10005;</button>'
+        + '<button class="tfe-del-btn" contenteditable="false" title="Delete block">&#10005;</button>'
         + '<table style="border-collapse:collapse;width:100%;margin:8px 0;font-size:13px">'
         + '<thead><tr>'+ths+'</tr></thead><tbody>'+trs+'</tbody></table></div>';
     });
@@ -3093,7 +3292,7 @@
     // Step 7: Images and links
     md = md.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, function(m,alt,src) {
       return '<div class="tfe-block-wrap" contenteditable="false">'
-        + '<button class="tfe-del-btn" onclick="this.parentElement.remove()" title="Delete">&#10005;</button>'
+        + '<button class="tfe-del-btn" contenteditable="false" title="Delete">&#10005;</button>'
         + '<img src="'+src+'" alt="'+alt+'" style="max-width:100%;border-radius:4px;display:block">'
         + '</div>';
     });

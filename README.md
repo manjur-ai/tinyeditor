@@ -33,8 +33,9 @@ No build step. No dependencies. Works offline. Works in TWA / WebView.
 | **Live Markdown shortcuts** | `# ` → h1, `## ` → h2, `- ` → list, `> ` → blockquote, `**bold**`, `` `code` ``, `---` → hr |
 | **Rich paste** | Preserves bold, italic, headings, lists, links, images, tables from any website |
 | **ChatGPT paste fix** | Code blocks → multiline `<pre>`, lists cleaned |
-| **Table keyboard nav** | `Tab` / `Shift+Tab` moves between cells; `Ctrl+A` scoped to cell; `Delete` clamped to cell |
-| **Forward delete** | 🗑 button deletes forward like the keyboard `Delete` key — char-by-char, merges blocks at boundary |
+| **Table keyboard nav** | `Tab` / `Shift+Tab` moves between cells; `Ctrl+A` scoped to cell; `Delete` / `Backspace` are clamped to the cell |
+| **Native delete/backspace** | `Delete` and `Backspace` behave like document-editor keys across text, inline tags, paragraphs, lists, and adjacent media blocks |
+| **Selection start marker** | `📍` marks a range start for toolbar deletion; pressing any key cancels marker mode so the range cannot drift |
 
 ### 📎 Insert Media (`importMedia`)
 | Feature | Detail |
@@ -42,18 +43,19 @@ No build step. No dependencies. Works offline. Works in TWA / WebView.
 | **URL auto-detect** | Paste any URL — YouTube/Vimeo/Facebook/Instagram/Twitter → iframe, image → `<img>`, video → `<video>`, `.pdf` → PDF.js viewer |
 | **4 override buttons** | Ambiguous URL (no extension) → choose 🖼 Image / 🎬 Video / 📑 PDF / 🔗 Link |
 | **Required label** | Every insert requires a display name — used as `alt`, link text, PDF title |
-| **Upload** | Image, Video, PDF — uploaded to your server with `label_YYYYMMDDHHmmssSSS.ext` filename |
+| **Upload** | Image, Video, PDF — uploaded from Insert Media and saved with `label_YYYYMMDDHHmmssSSS.ext` filename |
 | **Auto-compress** | ☑ Auto-compress checkbox — image → JPEG 70% quality, video → 800kbps re-encode, PDF → 150dpi |
 | **My Files** | Browse uploaded files, lazy-loaded on demand |
 | **As Embed / As Link** | Global toggle — insert inline or as a plain `<a>` link |
-| **PDF.js viewer** | PDFs render inline with ← / → page navigation. Uploaded PDFs use server URLs (persistent across sessions) |
+| **PDF.js viewer** | PDFs render inline through bundled local PDF.js, preloaded for faster warm-cache opens; controlled by `pdfPageMode` |
 
 ### 📄 Import Doc (`importDoc`)
 | Format | Detail |
 |---|---|
 | **Markdown (.md)** | Full conversion: headings, bold/italic, tables, code blocks, blockquotes, lists, images, links |
 | **HTML (.html)** | Clean import — scripts and event handlers stripped |
-| **PDF (.pdf)** | Upload PDF → renders inline with PDF.js |
+
+PDF import intentionally lives in **Insert Media**, not Import Doc, because PDFs are rendered as media previews rather than converted document content.
 
 ### 🗑 Delete System
 Two-level structure for imported content — plain paragraphs use keyboard only:
@@ -74,7 +76,15 @@ Two-level structure for imported content — plain paragraphs use keyboard only:
 | **✕ line button** | h1-h4, ul, ol, blockquote (inside import only) |
 | **📍 Mark Start + 🗑** | Mark a start → click end → delete range |
 | **🗑 toolbar button** | Selection delete / marked range / forward delete at cursor |
-| **Keyboard** | Backspace / Delete anywhere; table-cell safe |
+| **Keyboard Delete** | Deletes selected content; at a collapsed caret it deletes forward natively, including block merges, and removes the next atomic media/import block when needed |
+| **Keyboard Backspace** | Deletes selected content; at a collapsed caret it deletes backward natively, including block/list merges, and removes the previous atomic media/import block when needed |
+| **Mobile backspace** | Soft-keyboard `deleteContentBackward` uses the same previous-atomic-block fallback |
+
+When `📍` selection-start mode is active, any keyboard key or mobile `beforeinput` action cancels marker mode and consumes that input. Use the toolbar `🗑` button to delete the marked range.
+
+### Read-only display mode
+
+TinyEditor can be shown as read-only by disabling editing in your wrapper/app. In read-only mode, hide the toolbar/save controls and inline delete controls, and set the editor `contenteditable` state to `false`. Saved PDF previews, imported Markdown/HTML groups, media blocks, and text remain visible; keyboard delete/backspace and inline delete buttons should not change content.
 
 ### 📱 Mobile
 - Fixed bottom toolbar — **always visible**, never hides, fills full width
@@ -141,13 +151,14 @@ const editor = new TinyEditor({
   maxSize:      10485760,       // Max content size in bytes (default 10MB)
   maxImageSize: 1048576,        // Max image/pdf upload (default 1MB)
   maxVideoSize: 1048576,        // Max video upload (default 1MB)
+  pdfPageMode:  'single',       // 'single' = first page + Prev/Next, 'all' = every page stacked
 
   // Toolbar
   showToolbar: true,
   toolbar: [
     'bold', 'italic', 'heading',
     'importMedia',   // media modal — URL + upload + my files
-    'importDoc',     // import .md / .html / .pdf
+    'importDoc',     // import .md / .html
     'indent', 'outdent',
     'markStart', 'deleteSelection',
     // Legacy aliases (still work): 'image', 'link', 'importMd', 'importHtml'
@@ -195,10 +206,10 @@ editor.focus()                // → focus the editor
 | `italic` | `Ctrl+I` | Italic selected text |
 | `heading` | — | Cycle h2 → h3 → p |
 | `importMedia` | — | Open media modal (URL + upload + my files) |
-| `importDoc` | — | Import .md / .html / .pdf |
+| `importDoc` | — | Import .md / .html |
 | `indent` | `Tab` | Indent block |
 | `outdent` | `Shift+Tab` | Outdent block |
-| `markStart` | — | Place 📍 range-delete start marker |
+| `markStart` | — | Place 📍 range-delete start marker; any key cancels marker mode |
 | `deleteSelection` | — | Delete selection / marked range / forward-delete at cursor |
 
 ---
@@ -249,17 +260,21 @@ Uploaded files are renamed to `label_YYYYMMDDHHmmssSSS.ext` automatically.
 
 ## PDF.js Viewer
 
-PDFs render locally via [PDF.js](https://mozilla.github.io/pdf.js/) — no server, no Google Docs, works offline and in TWA.
+PDFs render locally via bundled [PDF.js](https://mozilla.github.io/pdf.js/) - no CDN, no Google Docs, no server viewer, works offline and in TWA.
 
-When `uploadUrl` is configured, PDFs are uploaded to your server and stored with a persistent URL — they will still render correctly after page reload. Without `uploadUrl`, PDFs use a session blob URL (visible in current session only).
+TinyEditor preloads the local PDF.js script and worker from `pdfjs/pdf.min.js` and `pdfjs/pdf.worker.min.js`. After the first load, normal browser/service-worker caching makes warm opens much faster and avoids network dependency.
 
-Service worker caching tip — cache PDF.js permanently:
+`pdfPageMode: 'single'` shows page 1 with Prev/Next controls. `pdfPageMode: 'all'` renders every page one after another.
+
+When `uploadUrl` is configured, PDFs are uploaded to your server and stored with a persistent URL. Without `uploadUrl`, PDFs are embedded as data URLs so saved HTML can still render after reopen.
+
+Service worker caching tip - cache bundled PDF.js permanently:
 
 ```js
 const LIB_CACHE = 'my-libs-v1'; // never delete this cache
 
 self.addEventListener('fetch', (e) => {
-  if (e.request.url.includes('pdfjs-dist')) {
+  if (e.request.url.includes('/pdfjs/')) {
     e.respondWith(
       caches.open(LIB_CACHE).then(c =>
         c.match(e.request).then(r =>
@@ -302,7 +317,7 @@ TinyEditor is designed as a fully standalone component — it does not pollute t
 | `getValue()` | Fast-path skips clone when clean; slow-path clones before stripping UI buttons |
 | Multiple instances | No shared state — 3 editors on the same page work independently |
 | Global scope | Only `TinyEditor` added to `window` |
-| Offline | All core features work with network blocked (PDF.js loads lazily on demand) |
+| Offline | All core features work with network blocked; bundled PDF.js is local and preloaded |
 
 ---
 
