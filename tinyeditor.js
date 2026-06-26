@@ -45,7 +45,7 @@
     onSave:         null,              // fn(html) — called when Save is clicked
     showSaveButton: true,
     showToolbar:    true,
-    toolbar: ['bold','italic','heading','importMedia','importDoc','indent','outdent','markStart','deleteSelection'],
+    toolbar: ['fontSize','bold','italic','heading','importMedia','importDoc','indent','outdent','markStart','deleteSelection'],
   };
 
   // ── CSS injected once ──────────────────────────────────────────────────────
@@ -71,6 +71,9 @@
 .tfe-btn *{pointer-events:none}
 .tfe-btn:hover{background:var(--tfe-acc,#4f8ef7);color:#fff;border-color:var(--tfe-acc,#4f8ef7)}
 .tfe-btn:active{transform:scale(.95)}
+.tfe-font-size-select{-moz-appearance:none;-webkit-appearance:none;appearance:none;background:var(--tfe-sur2,#1e1e1e);border:1px solid var(--tfe-bdr,#2d2d2d);border-radius:6px;color:var(--tfe-txt,#e0e0e0);font-size:13px;font-weight:600;padding:6px 18px 6px 8px;cursor:pointer;line-height:1.4;flex:1;min-height:36px;text-align:center;text-align-last:center;background-image:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E\");background-repeat:no-repeat;background-position:right 5px center;background-size:8px}
+.tfe-font-size-select:hover{border-color:var(--tfe-acc,#4f8ef7)}
+.tfe-font-size-select:focus{outline:none;border-color:var(--tfe-acc,#4f8ef7)}
 .tfe-size{font-size:10px;color:var(--tfe-mut,#888);text-align:right;padding:2px 0 4px}
 .tfe-editor{min-height:160px;overflow-y:auto;background:var(--tfe-sur2,#1e1e1e);border:1px solid var(--tfe-bdr,#2d2d2d);border-radius:6px;padding:12px;font-size:14px;line-height:1.7;outline:none;color:var(--tfe-txt,#e0e0e0);word-break:break-word}
 .tfe-editor:empty::before{content:attr(data-placeholder);color:var(--tfe-mut,#888);pointer-events:none}
@@ -264,6 +267,7 @@
     if (this.opts.showToolbar) {
       const tb = document.createElement('div');
       tb.className = 'tfe-toolbar';
+      const FONT_SIZES = ['8','10','12','14','16','18','20','24','28','32','36','48','72'];
       const LABELS = {
         bold:       '<b>B</b>',
         italic:     '<i>I</i>',
@@ -288,6 +292,21 @@
         deleteSelection:'Delete forward / selection / marked range',
       };
       this.opts.toolbar.forEach(name => {
+        if (name === 'fontSize') {
+          const sel = document.createElement('select');
+          sel.className = 'tfe-btn tfe-font-size-select';
+          sel.title = 'Font size';
+          sel.dataset.action = 'fontSize';
+          FONT_SIZES.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s;
+            opt.textContent = s;
+            sel.appendChild(opt);
+          });
+          sel.addEventListener('change', () => this._tbFontSize(sel.value));
+          tb.appendChild(sel);
+          return;
+        }
         const btn = document.createElement('button');
         btn.className = 'tfe-btn';
         btn.type = 'button';
@@ -382,6 +401,20 @@
   };
 
   // ── Toolbar actions ────────────────────────────────────────────────────────
+  TinyEditor.prototype._tbFontSize = function (px) {
+    this._ed.focus();
+    var marker = '7';
+    document.execCommand('fontSize', false, marker);
+    var fonts = this._ed.querySelectorAll('font[size="' + marker + '"]');
+    fonts.forEach(function (f) {
+      var span = document.createElement('span');
+      span.style.fontSize = px + 'px';
+      span.innerHTML = f.innerHTML;
+      f.replaceWith(span);
+    });
+    this._updateSize();
+  };
+
   TinyEditor.prototype._tbAction = function (name) {
     this._ed.focus();
     switch (name) {

@@ -171,6 +171,7 @@ const editor = new TinyEditor({
   // Toolbar
   showToolbar: true,
   toolbar: [
+    'fontSize',      // font size dropdown (8px–72px)
     'bold', 'italic', 'heading',
     'importMedia',   // media modal — URL + upload + my files
     'importDoc',     // import .md / .html
@@ -216,7 +217,8 @@ editor.focus()                // → focus the editor
 ## Toolbar Reference
 
 | Button | Shortcut | Description |
-|---|---|---|
+|---|---|---|---|
+| `fontSize` | — | Font size dropdown (8px–72px) |
 | `bold` | `Ctrl+B` | Bold selected text |
 | `italic` | `Ctrl+I` | Italic selected text |
 | `heading` | — | Cycle h2 → h3 → p |
