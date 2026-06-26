@@ -403,15 +403,29 @@
   // ── Toolbar actions ────────────────────────────────────────────────────────
   TinyEditor.prototype._tbFontSize = function (px) {
     this._ed.focus();
-    var marker = '7';
-    document.execCommand('fontSize', false, marker);
-    var fonts = this._ed.querySelectorAll('font[size="' + marker + '"]');
-    fonts.forEach(function (f) {
+    var sel = window.getSelection();
+    if (sel.rangeCount && !sel.getRangeAt(0).collapsed) {
+      var marker = '7';
+      document.execCommand('fontSize', false, marker);
+      var fonts = this._ed.querySelectorAll('font[size="' + marker + '"]');
+      fonts.forEach(function (f) {
+        var span = document.createElement('span');
+        span.style.fontSize = px + 'px';
+        span.innerHTML = f.innerHTML;
+        f.replaceWith(span);
+      });
+    } else {
+      var r = sel.getRangeAt(0);
       var span = document.createElement('span');
       span.style.fontSize = px + 'px';
-      span.innerHTML = f.innerHTML;
-      f.replaceWith(span);
-    });
+      span.appendChild(document.createTextNode('\u200B'));
+      r.deleteContents();
+      r.insertNode(span);
+      r.setStart(span.firstChild, 0);
+      r.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(r);
+    }
     this._updateSize();
   };
 
