@@ -9,6 +9,21 @@
 
 ---
 
+## What is TinyEditor?
+
+TinyEditor is a text editor for your web pages — like the toolbar you see in Google Docs or WordPress, but much simpler.
+
+**You just add one `<script>` tag to your HTML, and you get a full editor with:**
+- Bold, italic, headings, lists, and other formatting buttons
+- Paste links, images, videos — they get embedded automatically
+- Upload files from your phone or computer
+- Write in Markdown (`# heading`, `**bold**`) — it converts to rich text as you type
+- Dark mode and mobile support built in
+
+**No npm install. No build tools. No configuration.** One script tag, and it works in any browser — including Android WebView and TWA apps.
+
+---
+
 ## Why TinyEditor?
 
 Every existing rich text editor (Quill, TipTap, Editor.js) requires npm + a bundler, ships 200–500KB, and is desktop-first. **TinyEditor** needs just:
