@@ -1,9 +1,9 @@
 # ⚡ TinyEditor
 
-> Zero-dependency, mobile-first rich text editor — no build step, no bundler, just one script tag.
+> Zero-dependency, mobile-first rich text editor with URL preview, image upload, Markdown shortcuts, and media embeds. ~99KB. No build step.
 
 [![npm version](https://img.shields.io/npm/v/@manjur-ai/tinyeditor)](https://www.npmjs.com/package/@manjur-ai/tinyeditor)
-[![size](https://img.shields.io/badge/minified-87KB-green)](https://unpkg.com/@manjur-ai/tinyeditor/tinyeditor.min.js)
+[![size](https://img.shields.io/badge/minified-99KB-green)](https://unpkg.com/@manjur-ai/tinyeditor/tinyeditor.min.js)
 [![Zero deps](https://img.shields.io/badge/dependencies-0-blue)]()
 [![License](https://img.shields.io/badge/license-MIT-orange)](LICENSE)
 
@@ -325,7 +325,7 @@ TinyEditor is designed as a fully standalone component — it does not pollute t
 
 | | **TinyEditor** | Quill | TipTap | Editor.js |
 |---|---|---|---|---|
-| Minified size | **87 KB** | 430 KB | 200 KB+ | 300 KB+ |
+| Minified size | **99 KB** | 430 KB | 200 KB+ | 300 KB+ |
 | Dependencies | **0** | 0 | ProseMirror | Many |
 | No build step | **✅** | ✅ | ❌ | ❌ |
 | Mobile toolbar | **✅ always visible** | ⚠️ | ⚠️ | ⚠️ |

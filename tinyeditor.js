@@ -1,5 +1,5 @@
 /*!
- * TinyEditor v0.1.0
+ * TinyEditor v0.1.16
  * Zero-dependency, mobile-first rich text editor
  * with URL preview, image upload, MD/HTML import
  *
@@ -31,6 +31,7 @@
     showMediaUrl:    true,             // Show URL / embed section
     showMediaUpload: true,             // Show upload file section
     showMediaFiles:  true,             // Show "My Files" picker section
+    showCrop:        true,             // Show quadrilateral crop after image capture/upload
     // Server-side upload/list endpoints
     uploadUrl:       null,             // POST endpoint e.g. '/api/upload'
     listUrl:         null,             // GET endpoint e.g. '/api/uploads'
@@ -91,6 +92,7 @@
 .tfe-editor iframe{max-width:100%;border-radius:6px;margin:4px 0;display:block;border:none}
 .tfe-media-modal{position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center}
 .tfe-doc-modal{position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:12px}
+.tfe-modal-overlay{position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center}
 .tfe-doc-box{background:var(--tfe-sur,#141414);border:1px solid var(--tfe-bdr,#2d2d2d);border-radius:14px;padding:20px;width:calc(100vw - 24px);max-width:420px;display:flex;flex-direction:column;gap:10px}
 .tfe-doc-title{font-size:16px;font-weight:700;color:var(--tfe-txt,#e0e0e0);display:flex;justify-content:space-between;align-items:center}
 .tfe-doc-card{background:var(--tfe-sur2,#1e1e1e);border:1px solid var(--tfe-bdr,#2d2d2d);border-radius:10px;padding:14px 16px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:14px}
@@ -101,6 +103,7 @@
 .tfe-doc-card-desc{font-size:12px;color:var(--tfe-mut,#888);line-height:1.4}
 .tfe-doc-card-badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;flex-shrink:0}
 .tfe-doc-card--md{border-left:3px solid #4f8ef7}
+.tfe-crop-box{background:var(--tfe-sur,#141414);border:1px solid var(--tfe-bdr,#2d2d2d);border-radius:14px;overflow:hidden;text-align:center}
 .tfe-doc-card--md .tfe-doc-card-badge{background:rgba(79,142,247,.15);color:#4f8ef7}
 .tfe-doc-card--html{border-left:3px solid #4caf50}
 .tfe-doc-card--html .tfe-doc-card-badge{background:rgba(76,175,80,.15);color:#4caf50}
@@ -131,6 +134,7 @@
 .tfe-media-file-row:hover{border-color:var(--tfe-acc,#4f8ef7);background:rgba(79,142,247,.06)}
 .tfe-media-file-row.tfe-file-selected{border-color:var(--tfe-acc,#4f8ef7);background:rgba(79,142,247,.12)}
 .tfe-media-file-icon{font-size:18px;flex-shrink:0;width:24px;text-align:center}
+.tfe-media-file-thumb{width:34px;height:34px;border-radius:6px;object-fit:cover;background:var(--tfe-sur2,#1e1e1e);border:1px solid var(--tfe-bdr,#2d2d2d);flex-shrink:0}
 .tfe-media-file-info{flex:1;min-width:0}
 .tfe-media-file-name{font-size:13px;color:var(--tfe-txt,#e0e0e0);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
 .tfe-media-file-meta{font-size:11px;color:var(--tfe-mut,#888);margin-top:1px}
@@ -330,14 +334,18 @@
     this._ed = ed;
 
     // ── Hidden file inputs ───────────────────────────────────────────────────
-    ['img','vid','md','html','pdf'].forEach(type => {
+    ['img','cam','vid','md','html','pdf'].forEach(type => {
       const inp = document.createElement('input');
       inp.type = 'file';
       inp.style.display = 'none';
-      inp.accept = type === 'img' ? 'image/*' : type === 'vid' ? 'video/*' : type === 'md' ? '.md,.txt' : type === 'html' ? '.html,.htm' : '.pdf';
-      inp.addEventListener('change', (e) => this._fileChosen(type, e));
+      inp.accept = (type === 'img' || type === 'cam') ? 'image/*' : type === 'vid' ? 'video/*' : type === 'md' ? '.md,.txt' : type === 'html' ? '.html,.htm' : '.pdf';
+      if (type === 'cam') inp.setAttribute('capture', 'environment');
+      // Image picker allows multiple selection (notes, self-notes, etc.)
+      // Camera stays single (capture = environment).
+      if (type === 'img') inp.multiple = !!(this.opts.multipleImages !== false);
+      inp.addEventListener('change', (e) => this._fileChosen(type === 'cam' ? 'img' : type, e));
       wrap.appendChild(inp);
-      this['_file_' + type] = inp;  // _file_img, _file_vid, _file_md, _file_html
+      this['_file_' + type] = inp;  // _file_img, _file_cam, _file_vid, _file_md, _file_html
     });
 
     // ── Save button ──────────────────────────────────────────────────────────
@@ -2264,25 +2272,24 @@
 
   // ── Client-side compression helpers ─────────────────────────────────────────
 
-  // Compress image to JPEG 70% quality, resize if > maxDim on longest side
+  // Compress image to JPEG 92% quality, resize if > max dims
   TinyEditor.prototype._compressImage = function (file, callback) {
-    var MAX_DIM = 1920; // px on longest side
-    var QUALITY = 0.70;
+    var MAX_LONG = 1536, QUALITY = 0.92;
     var reader = new FileReader();
     reader.onload = function(e) {
       var img = new Image();
       img.onload = function() {
         var w = img.width, h = img.height;
-        if (w > MAX_DIM || h > MAX_DIM) {
-          if (w > h) { h = Math.round(h * MAX_DIM / w); w = MAX_DIM; }
-          else        { w = Math.round(w * MAX_DIM / h); h = MAX_DIM; }
+        var longSide = w >= h ? w : h;
+        if (longSide > MAX_LONG) {
+          var scale = MAX_LONG / longSide;
+          w = Math.round(w * scale); h = Math.round(h * scale);
         }
         var canvas = document.createElement('canvas');
         canvas.width = w; canvas.height = h;
         canvas.getContext('2d').drawImage(img, 0, 0, w, h);
         canvas.toBlob(function(blob) {
-          if (!blob) { callback(null, file); return; } // fallback to original
-          // Only use compressed if actually smaller
+          if (!blob) { callback(null, file); return; }
           if (blob.size < file.size) {
             callback(blob, new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), {type:'image/jpeg'}));
           } else {
@@ -2451,8 +2458,8 @@
       + '<button class="tfe-media-btn" id="tfe-mc-embed">Insert</button>'
       + '</div>'
       + '<div class="tfe-media-label-row tfe-media-label-row--hidden-label">'
-      + '<label for="tfe-mc-url-label">Label / display name <span style="color:#e24b4a">*</span></label>'
-      + '<input class="tfe-media-label-input" id="tfe-mc-url-label" placeholder="Display name *" autocomplete="off">'
+      + '<label for="tfe-mc-url-label">Label / display name</label>'
+      + '<input class="tfe-media-label-input" id="tfe-mc-url-label" placeholder="Display name (optional)" autocomplete="off">'
       + '</div>'
       /* Override buttons — hidden until auto-detect is uncertain */
       + '<div id="tfe-mc-overrides" style="display:none;gap:6px;margin-top:8px;flex-wrap:wrap">'
@@ -2468,13 +2475,14 @@
     var uploadCard = showUpload ? (
       '<div class="tfe-media-card tfe-media-card--upload">'
       + '<div class="tfe-media-label-row tfe-media-label-row--hidden-label" style="margin-top:0">'
-      + '<label for="tfe-mc-upload-label">Label / display name <span style="color:#e24b4a">*</span></label>'
-      + '<input class="tfe-media-label-input" id="tfe-mc-upload-label" placeholder="Upload display name *" autocomplete="off">'
+      + '<label for="tfe-mc-upload-label">Label / display name</label>'
+      + '<input class="tfe-media-label-input" id="tfe-mc-upload-label" placeholder="Upload display name (optional)" autocomplete="off">'
       + '</div>'
       + '<label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--tfe-mut,#888);cursor:pointer;padding:0 0 6px;user-select:none">'
       + '<input type="checkbox" id="tfe-mc-compress" checked style="width:14px;height:14px;accent-color:var(--tfe-acc,#4f8ef7);cursor:pointer">'
       + '&#9889; Compress</label>'
       + '<div class="tfe-media-row">'
+      + '<button class="tfe-media-btn-sec" id="tfe-mc-cam-upload">&#128247;&nbsp; Camera</button>'
       + '<button class="tfe-media-btn-sec" id="tfe-mc-img-upload">&#128444;&nbsp; Image</button>'
       + '<button class="tfe-media-btn-sec" id="tfe-mc-vid-upload">&#127916;&nbsp; Video</button>'
       + '<button class="tfe-media-btn-sec" id="tfe-mc-pdf-upload">&#128209;&nbsp; PDF</button>'
@@ -2548,15 +2556,6 @@
 
       // Validate label — shake + focus if empty, return false
       var requireLabel = function(inputId) {
-        var inp = document.getElementById(inputId);
-        if (!inp) return true; // no input = optional
-        var val = inp.value.trim();
-        if (!val) {
-          inp.classList.add('tfe-label-error');
-          inp.focus();
-          setTimeout(function(){ inp.classList.remove('tfe-label-error'); }, 400);
-          return false;
-        }
         return true;
       };
 
@@ -2596,7 +2595,7 @@
         var lbl = getUrlLabel();
         if (isLinkMode()) {
           self._ed.focus();
-          document.execCommand('insertHTML', false, '<a href="' + _esc(url) + '" target="_blank" style="color:var(--tfe-acc,#4f8ef7)">' + _esc(lbl) + '</a> ');
+          document.execCommand('insertHTML', false, '<a href="' + _esc(url) + '" target="_blank" style="color:var(--tfe-acc,#4f8ef7)">' + _esc(lbl || url) + '</a> ');
           self._updateSize();
         } else {
           self._insertMediaByUrl(url, lbl);
@@ -2688,6 +2687,15 @@
         if (opts.uploadUrl) { self._pendingUploadClose = close; close(); }
         else { close(); }
         self._file_img.click();
+      };
+      document.getElementById('tfe-mc-cam-upload').onclick = function() {
+        if (!requireLabel('tfe-mc-upload-label')) return;
+        self._pendingUploadLabel = getUploadLabel();
+        self._pendingUploadAsLink = isLinkMode();
+        self._pendingCompress = shouldCompress();
+        if (opts.uploadUrl) { self._pendingUploadClose = close; close(); }
+        else { close(); }
+        self._file_cam.click();
       };
       document.getElementById('tfe-mc-vid-upload').onclick = function() {
         if (!requireLabel('tfe-mc-upload-label')) return;
@@ -2798,10 +2806,10 @@
       };
     }
 
-    // Focus URL input
+    // Focus Camera button by default (not the URL field)
     setTimeout(function() {
-      var inp = document.getElementById('tfe-mc-url');
-      if (inp) inp.focus();
+      var camBtn = document.getElementById('tfe-mc-cam-upload');
+      if (camBtn) { camBtn.focus(); camBtn.scrollIntoView({block:'nearest'}); }
     }, 50);
   };
 
@@ -2829,11 +2837,16 @@
           var size = f.size ? self._formatSize(f.size) : '';
           var date = f.uploaded_at ? new Date(f.uploaded_at).toLocaleDateString() : '';
           var url  = f.url || ((self.opts.mediaBasePath || '') + '/' + name).replace('//', '/');
+          var thumbUrl = f.thumb_url || url;
+          var isImage = /^image\//i.test(f.mime || '') || /\.(jpe?g|png|gif|webp|svg|bmp)(\?|$)/i.test(name);
+          var preview = isImage
+            ? '<img class="tfe-media-file-thumb" src="' + _esc(thumbUrl) + '" alt="" loading="lazy" decoding="async">'
+            : '<div class="tfe-media-file-icon">' + icon + '</div>';
 
           var row = document.createElement('div');
           row.className = 'tfe-media-file-row';
           row.dataset.file = url;
-          row.innerHTML = '<div class="tfe-media-file-icon">' + icon + '</div>'
+          row.innerHTML = preview
             + '<div class="tfe-media-file-info">'
             + '<div class="tfe-media-file-name">' + _esc(name) + '</div>'
             + '<div class="tfe-media-file-meta">' + (size ? size + ' &nbsp;' : '') + (date || '') + '</div>'
@@ -3010,9 +3023,290 @@
     this._updateSize();
   };
 
+  // ── Quadrilateral crop modal ───────────────────────────────────────────────
+  TinyEditor.prototype._cropImageModal = function (file, callback) {
+    var self = this;
+    var reader = new FileReader();
+    reader.onerror = function () { callback(file); };
+    reader.onload = function (ev) {
+      var img = new Image();
+      img.onerror = function () { callback(file); };
+      img.onload = function () {
+        try {
+        var maxCropW = Math.min(600, window.innerWidth * 0.88);
+        var maxCropH = Math.min(600, window.innerHeight * 0.78);
+        var scale = Math.min(1, maxCropW / img.naturalWidth, maxCropH / img.naturalHeight);
+        var dispW = Math.round(img.naturalWidth * scale);
+        var dispH = Math.round(img.naturalHeight * scale);
+
+        var existing = document.getElementById('tfe-crop-modal');
+        if (existing) existing.remove();
+
+        var overlay = document.createElement('div');
+        overlay.id = 'tfe-crop-modal';
+        overlay.className = 'tfe-modal-overlay';
+        overlay.innerHTML =
+          '<div class="tfe-modal-box tfe-crop-box" style="max-width:95vw;max-height:95vh">'
+          + '<div class="tfe-modal-header"><span style="font-size:16px;font-weight:700">Crop Image</span></div>'
+          + '<div class="tfe-crop-canvas-wrap" style="position:relative;margin:10px;overflow:hidden;cursor:crosshair;border:1px solid var(--tfe-bdr,#444);border-radius:4px;background:#fff;display:inline-block">'
+          + '<canvas id="tfe-crop-canvas" width="'+dispW+'" height="'+dispH+'" style="display:block;width:'+dispW+'px;height:'+dispH+'px"></canvas>'
+          + '</div>'
+          + '<div class="tfe-modal-footer" style="display:flex;gap:8px;justify-content:center;padding:8px 10px 12px">'
+          + '<button class="tfe-media-btn" id="tfe-crop-apply" style="flex:1;max-width:140px;background:var(--tfe-acc,#4f8ef7);color:#fff;border:none;border-radius:4px;padding:8px 16px;font-size:14px;cursor:pointer">Apply Crop</button>'
+          + '<button class="tfe-media-btn" id="tfe-crop-skip" style="flex:1;max-width:140px;background:var(--tfe-bdr,#555);color:var(--tfe-txt,#eee);border:none;border-radius:4px;padding:8px 16px;font-size:14px;cursor:pointer">Full Image</button>'
+          + '<button class="tfe-media-btn" id="tfe-crop-cancel" style="flex:1;max-width:140px;background:rgba(224,82,82,.2);color:#e05252;border:1px solid #e05252;border-radius:4px;padding:8px 16px;font-size:14px;cursor:pointer">Cancel</button>'
+          + '</div></div>';
+        document.body.appendChild(overlay);
+
+        var canvas = document.getElementById('tfe-crop-canvas');
+        var ctx = canvas.getContext('2d');
+        var iw = img.naturalWidth, ih = img.naturalHeight;
+
+        // Draw image on canvas
+        ctx.drawImage(img, 0, 0, dispW, dispH);
+
+        // Corner handles — start at 90% of image (5% inset on each side)
+        var inset = 0.05;
+        var corners = [
+          {x: dispW * inset, y: dispH * inset},                 // 0: top-left
+          {x: dispW * (1 - inset), y: dispH * inset},           // 1: top-right
+          {x: dispW * (1 - inset), y: dispH * (1 - inset)},     // 2: bottom-right
+          {x: dispW * inset, y: dispH * (1 - inset)}            // 3: bottom-left
+        ];
+        var dragIdx = -1;
+        var dragOrig = null;
+        var HANDLE_R = 10;
+        var SIDE_PAIRS = [[0,1],[1,2],[2,3],[3,0]];
+        var SIDE_HIT_R = HANDLE_R * 2.5;
+
+        function sideMid(i) {
+          var p = SIDE_PAIRS[i];
+          return {x: (corners[p[0]].x + corners[p[1]].x) / 2,
+                  y: (corners[p[0]].y + corners[p[1]].y) / 2};
+        }
+
+        function drawHandles() {
+          ctx.clearRect(0, 0, dispW, dispH);
+          ctx.drawImage(img, 0, 0, dispW, dispH);
+
+          // Draw quadrilateral
+          ctx.beginPath();
+          ctx.moveTo(corners[0].x, corners[0].y);
+          for (var i = 1; i < 4; i++) ctx.lineTo(corners[i].x, corners[i].y);
+          ctx.closePath();
+          ctx.strokeStyle = '#4f8ef7';
+          ctx.lineWidth = 2;
+          ctx.setLineDash([5, 4]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          // Fill outside with semi-transparent overlay
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(0, 0, dispW, dispH);
+          ctx.moveTo(corners[0].x, corners[0].y);
+          for (var i = 1; i < 4; i++) ctx.lineTo(corners[i].x, corners[i].y);
+          ctx.closePath();
+          ctx.fillStyle = 'rgba(0,0,0,0.45)';
+          ctx.fill('evenodd');
+          ctx.restore();
+
+          // Draw corner handles
+          for (var j = 0; j < 4; j++) {
+            var c = corners[j];
+            ctx.beginPath();
+            ctx.arc(c.x, c.y, HANDLE_R, 0, Math.PI * 2);
+            ctx.fillStyle = '#4f8ef7';
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 10px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(j + 1, c.x, c.y);
+          }
+
+          // Draw side handles — thicker bars for easy touch
+          var sideLen = 80;
+          for (var j = 0; j < 4; j++) {
+            var p = SIDE_PAIRS[j], a = corners[p[0]], b = corners[p[1]];
+            var mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+            var edx = b.x - a.x, edy = b.y - a.y;
+            var elen = Math.sqrt(edx * edx + edy * edy);
+            if (elen < 0.001) continue;
+            ctx.beginPath();
+            ctx.moveTo(mx - edx / elen * sideLen, my - edy / elen * sideLen);
+            ctx.lineTo(mx + edx / elen * sideLen, my + edy / elen * sideLen);
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 6;
+            ctx.stroke();
+          }
+        }
+        drawHandles();
+
+        function getCanvasPos(e) {
+          var rect = canvas.getBoundingClientRect();
+          var touch = e.touches ? e.touches[0] : e;
+          return {
+            x: Math.max(0, Math.min(dispW, (touch.clientX - rect.left) * (dispW / rect.width))),
+            y: Math.max(0, Math.min(dispH, (touch.clientY - rect.top) * (dispH / rect.height)))
+          };
+        }
+
+        function hitTest(x, y) {
+          for (var i = 0; i < 4; i++)
+            if (Math.abs(x - corners[i].x) < HANDLE_R * 2 && Math.abs(y - corners[i].y) < HANDLE_R * 2) return i;
+          for (var i = 0; i < 4; i++) {
+            var m = sideMid(i);
+            if (Math.abs(x - m.x) < SIDE_HIT_R && Math.abs(y - m.y) < SIDE_HIT_R) return 4 + i;
+          }
+          return -1;
+        }
+
+        function onPointerDown(e) {
+          e.preventDefault();
+          var pos = getCanvasPos(e);
+          dragIdx = hitTest(pos.x, pos.y);
+          if (dragIdx >= 4) {
+            dragOrig = corners.map(function(c) { return {x: c.x, y: c.y}; });
+          }
+        }
+
+        function onPointerMove(e) {
+          if (dragIdx < 0) return;
+          e.preventDefault();
+          var pos = getCanvasPos(e);
+          if (dragIdx < 4) {
+            corners[dragIdx] = pos;
+          } else {
+            var pair = SIDE_PAIRS[dragIdx - 4];
+            var a = pair[0], b = pair[1];
+            var oa = dragOrig[a], ob = dragOrig[b];
+            var mx = (oa.x + ob.x) / 2, my = (oa.y + ob.y) / 2;
+            var edx = ob.x - oa.x, edy = ob.y - oa.y;
+            var elen = Math.sqrt(edx * edx + edy * edy);
+            if (elen > 0.001) {
+              var nx = -edy / elen, ny = edx / elen;
+              var dot = (pos.x - mx) * nx + (pos.y - my) * ny;
+              corners[a].x = oa.x + dot * nx; corners[a].y = oa.y + dot * ny;
+              corners[b].x = ob.x + dot * nx; corners[b].y = ob.y + dot * ny;
+            }
+          }
+          drawHandles();
+        }
+
+        function onPointerUp() { dragIdx = -1; dragOrig = null; }
+
+        // Mouse
+        canvas.addEventListener('mousedown', onPointerDown);
+        window.addEventListener('mousemove', onPointerMove);
+        window.addEventListener('mouseup', onPointerUp);
+        // Touch
+        canvas.addEventListener('touchstart', onPointerDown, {passive: false});
+        window.addEventListener('touchmove', onPointerMove, {passive: false});
+        window.addEventListener('touchend', onPointerUp);
+
+        function cleanup() {
+          canvas.removeEventListener('mousedown', onPointerDown);
+          window.removeEventListener('mousemove', onPointerMove);
+          window.removeEventListener('mouseup', onPointerUp);
+          canvas.removeEventListener('touchstart', onPointerDown);
+          window.removeEventListener('touchmove', onPointerMove);
+          window.removeEventListener('touchend', onPointerUp);
+          var m = document.getElementById('tfe-crop-modal');
+          if (m) m.remove();
+        }
+
+        function doCrop() {
+          // Map display coords back to original image coords
+          var inv = 1 / scale;
+          var srcCorners = corners.map(function (c) {
+            return {x: Math.round(c.x * inv), y: Math.round(c.y * inv)};
+          });
+
+          // Compute min bounding rect
+          var xs = srcCorners.map(function (c) { return c.x; });
+          var ys = srcCorners.map(function (c) { return c.y; });
+          var minX = Math.min.apply(null, xs);
+          var maxX = Math.max.apply(null, xs);
+          var minY = Math.min.apply(null, ys);
+          var maxY = Math.max.apply(null, ys);
+          var bw = Math.max(1, maxX - minX);
+          var bh = Math.max(1, maxY - minY);
+
+          // Adjust corners to bounding-rect-relative coords
+          var relCorners = srcCorners.map(function (c) {
+            return {x: c.x - minX, y: c.y - minY};
+          });
+
+          // Render cropped result
+          var outCanvas = document.createElement('canvas');
+          outCanvas.width = bw;
+          outCanvas.height = bh;
+          var outCtx = outCanvas.getContext('2d');
+
+          // Fill white
+          outCtx.fillStyle = '#fff';
+          outCtx.fillRect(0, 0, bw, bh);
+
+          // Clip to quadrilateral
+          outCtx.beginPath();
+          outCtx.moveTo(relCorners[0].x, relCorners[0].y);
+          for (var i = 1; i < 4; i++) outCtx.lineTo(relCorners[i].x, relCorners[i].y);
+          outCtx.closePath();
+          outCtx.clip();
+
+          // Draw source image (only appears inside quadrilateral)
+          outCtx.drawImage(img, minX, minY, bw, bh, 0, 0, bw, bh);
+
+          cleanup();
+          outCanvas.toBlob(function (blob) {
+            if (blob) {
+              var croppedFile = new File([blob], file.name.replace(/\.[^.]+$/, '.png') || 'cropped.png', {type: 'image/png'});
+              callback(croppedFile);
+            } else {
+              callback(file);
+            }
+          }, 'image/png');
+        }
+
+        document.getElementById('tfe-crop-apply').onclick = doCrop;
+        document.getElementById('tfe-crop-skip').onclick = function () {
+          cleanup();
+          callback(file);
+        };
+        document.getElementById('tfe-crop-cancel').onclick = function () {
+          cleanup();
+          callback(null);
+        };
+      } catch(e) { try { document.getElementById('tfe-crop-modal')?.remove(); } catch(ex) {} callback(file); } };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
   // ── File chosen handler ────────────────────────────────────────────────────
   TinyEditor.prototype._fileChosen = function (type, e) {
-    const file = e.target.files[0];
+    const files = e.target.files;
+    if (!files || !files.length) return;
+    const self = this;
+    if (type === 'img' && files.length > 1) {
+      // Multiple files selected — upload each one but skip the crop modal
+      // (crop only makes sense for a single carefully-framed shot).
+      for (var fi = 0; fi < files.length; fi++) {
+        (function(f) {
+          self._fileChosenSingle(type, f, true);
+        })(files[fi]);
+      }
+      e.target.value = '';
+      return;
+    }
+    self._fileChosenSingle(type, files[0], false);
+  };
+
+  TinyEditor.prototype._fileChosenSingle = function (type, file, skipCrop) {
     if (!file) return;
     const self = this;
     const compress = !!self._pendingCompress;
@@ -3067,19 +3361,26 @@
           e.target.value = '';
         });
       };
-      if (compress && file.size > maxSize * 0.8) {
-        var boxEl = document.querySelector('.tfe-media-box');
-        if (boxEl && !boxEl.id) boxEl.id = 'tfe-comp-host';
-        var compHostId = (boxEl && boxEl.id) || 'tfe-comp-host';
-        self._showSpinner(compHostId, 'Converting to JPEG…');
-        self._spinnerMsg(compHostId, 'Converting to JPEG…', 0.1);
-        self._compressImage(file, function(blob, compressed) {
-          var saved = Math.round((1 - compressed.size/file.size)*100);
-          self._spinnerMsg(compHostId, saved > 0 ? 'Compressed! Saved '+saved+'%' : 'Image ready', 1);
-          setTimeout(function(){ self._hideSpinner(compHostId); doImg(compressed); }, 400);
-        });
+      var proceedWithFile = function(f) {
+        if (compress && f.size > maxSize * 0.8) {
+          var boxEl = document.querySelector('.tfe-media-box');
+          if (boxEl && !boxEl.id) boxEl.id = 'tfe-comp-host';
+          var compHostId = (boxEl && boxEl.id) || 'tfe-comp-host';
+          self._showSpinner(compHostId, 'Converting to JPEG…');
+          self._spinnerMsg(compHostId, 'Converting to JPEG…', 0.1);
+          self._compressImage(f, function(blob, compressed) {
+            var saved = Math.round((1 - compressed.size/f.size)*100);
+            self._spinnerMsg(compHostId, saved > 0 ? 'Compressed! Saved '+saved+'%' : 'Image ready', 1);
+            setTimeout(function(){ self._hideSpinner(compHostId); doImg(compressed); }, 400);
+          });
+        } else {
+          doImg(f);
+        }
+      };
+      if (self.opts.showCrop && !skipCrop) {
+        self._cropImageModal(file, proceedWithFile);
       } else {
-        doImg(file);
+        proceedWithFile(file);
       }
       return;
     }

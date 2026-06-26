@@ -1,11 +1,12 @@
 {
   "name": "@manjur-ai/tinyeditor",
-  "version": "0.1.15",
-  "description": "Zero-dependency, mobile-first rich text editor with URL preview, image upload, Markdown shortcuts, and media embeds. ~45KB. No build step.",
+  "version": "0.1.16",
+  "description": "Zero-dependency, mobile-first rich text editor with URL preview, image upload, Markdown shortcuts, and media embeds. ~99KB. No build step.",
   "main": "tinyeditor.js",
   "files": [
     "tinyeditor.js",
     "tinyeditor.min.js",
+    "pdfjs/",
     "README.md",
     "SHORTCUTS.md",
     "CHANGELOG.md"
@@ -36,5 +37,11 @@
     "url": "https://github.com/manjur-ai/tinyeditor/issues"
   },
   "unpkg": "tinyeditor.min.js",
-  "jsdelivr": "tinyeditor.min.js"
+  "jsdelivr": "tinyeditor.min.js",
+  "scripts": {
+    "build": "node ../scripts/build-tinyeditor.js"
+  },
+  "devDependencies": {
+    "terser": "^5.37.0"
+  }
 }
