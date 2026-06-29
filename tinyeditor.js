@@ -3098,11 +3098,16 @@
       img.onerror = function () { callback(file); };
       img.onload = function () {
         try {
-        var maxCropW = Math.min(600, window.innerWidth * 0.88);
-        var maxCropH = Math.min(600, window.innerHeight * 0.78);
-        var scale = Math.min(1, maxCropW / img.naturalWidth, maxCropH / img.naturalHeight);
-        var dispW = Math.round(img.naturalWidth * scale);
-        var dispH = Math.round(img.naturalHeight * scale);
+        var cropImg = img;
+        var maxCropW, maxCropH, scale, dispW, dispH;
+        function computeDisplaySize() {
+          maxCropW = Math.min(600, window.innerWidth * 0.88);
+          maxCropH = Math.min(600, window.innerHeight * 0.78);
+          scale = Math.min(1, maxCropW / cropImg.naturalWidth, maxCropH / cropImg.naturalHeight);
+          dispW = Math.round(cropImg.naturalWidth * scale);
+          dispH = Math.round(cropImg.naturalHeight * scale);
+        }
+        computeDisplaySize();
 
         var existing = document.getElementById('tfe-crop-modal');
         if (existing) existing.remove();
@@ -3117,27 +3122,37 @@
           + '<canvas id="tfe-crop-canvas" width="'+dispW+'" height="'+dispH+'" style="display:block;width:'+dispW+'px;height:'+dispH+'px"></canvas>'
           + '</div>'
           + '<div class="tfe-modal-footer" style="display:flex;gap:8px;justify-content:center;padding:8px 10px 12px">'
-          + '<button class="tfe-media-btn" id="tfe-crop-apply" style="flex:1;max-width:140px;background:var(--tfe-acc,#4f8ef7);color:#fff;border:none;border-radius:4px;padding:8px 16px;font-size:14px;cursor:pointer">Apply Crop</button>'
-          + '<button class="tfe-media-btn" id="tfe-crop-skip" style="flex:1;max-width:140px;background:var(--tfe-bdr,#555);color:var(--tfe-txt,#eee);border:none;border-radius:4px;padding:8px 16px;font-size:14px;cursor:pointer">Full Image</button>'
+          + '<button class="tfe-media-btn" id="tfe-crop-rotate" title="Rotate clockwise" aria-label="Rotate clockwise" style="width:40px;flex:0 0 40px;background:var(--tfe-sur2,#222);color:var(--tfe-txt,#eee);border:1px solid var(--tfe-bdr,#555);border-radius:4px;padding:8px 0;font-size:16px;line-height:1;cursor:pointer">&#8635;</button>'
+          + '<button class="tfe-media-btn" id="tfe-crop-apply" style="flex:1;max-width:140px;background:var(--tfe-acc,#4f8ef7);color:#fff;border:none;border-radius:4px;padding:8px 16px;font-size:14px;cursor:pointer">Crop</button>'
+          + '<button class="tfe-media-btn" id="tfe-crop-skip" style="flex:1;max-width:140px;background:var(--tfe-bdr,#555);color:var(--tfe-txt,#eee);border:none;border-radius:4px;padding:8px 16px;font-size:14px;cursor:pointer">Full</button>'
           + '<button class="tfe-media-btn" id="tfe-crop-cancel" style="flex:1;max-width:140px;background:rgba(224,82,82,.2);color:#e05252;border:1px solid #e05252;border-radius:4px;padding:8px 16px;font-size:14px;cursor:pointer">Cancel</button>'
           + '</div></div>';
         document.body.appendChild(overlay);
 
         var canvas = document.getElementById('tfe-crop-canvas');
         var ctx = canvas.getContext('2d');
-        var iw = img.naturalWidth, ih = img.naturalHeight;
+        function applyCanvasSize() {
+          canvas.width = dispW;
+          canvas.height = dispH;
+          canvas.style.width = dispW + 'px';
+          canvas.style.height = dispH + 'px';
+        }
 
         // Draw image on canvas
-        ctx.drawImage(img, 0, 0, dispW, dispH);
+        ctx.drawImage(cropImg, 0, 0, dispW, dispH);
 
         // Corner handles — start at 90% of image (5% inset on each side)
         var inset = 0.05;
-        var corners = [
-          {x: dispW * inset, y: dispH * inset},                 // 0: top-left
-          {x: dispW * (1 - inset), y: dispH * inset},           // 1: top-right
-          {x: dispW * (1 - inset), y: dispH * (1 - inset)},     // 2: bottom-right
-          {x: dispW * inset, y: dispH * (1 - inset)}            // 3: bottom-left
-        ];
+        var corners = [];
+        function resetCorners() {
+          corners = [
+            {x: dispW * inset, y: dispH * inset},                 // 0: top-left
+            {x: dispW * (1 - inset), y: dispH * inset},           // 1: top-right
+            {x: dispW * (1 - inset), y: dispH * (1 - inset)},     // 2: bottom-right
+            {x: dispW * inset, y: dispH * (1 - inset)}            // 3: bottom-left
+          ];
+        }
+        resetCorners();
         var dragIdx = -1;
         var dragOrig = null;
         var HANDLE_R = 10;
@@ -3152,7 +3167,7 @@
 
         function drawHandles() {
           ctx.clearRect(0, 0, dispW, dispH);
-          ctx.drawImage(img, 0, 0, dispW, dispH);
+          ctx.drawImage(cropImg, 0, 0, dispW, dispH);
 
           // Draw quadrilateral
           ctx.beginPath();
@@ -3324,7 +3339,7 @@
           outCtx.clip();
 
           // Draw source image (only appears inside quadrilateral)
-          outCtx.drawImage(img, minX, minY, bw, bh, 0, 0, bw, bh);
+          outCtx.drawImage(cropImg, minX, minY, bw, bh, 0, 0, bw, bh);
 
           cleanup();
           outCanvas.toBlob(function (blob) {
@@ -3337,11 +3352,44 @@
           }, 'image/png');
         }
 
-        document.getElementById('tfe-crop-apply').onclick = doCrop;
-        document.getElementById('tfe-crop-skip').onclick = function () {
+        function rotateClockwise() {
+          var rotCanvas = document.createElement('canvas');
+          rotCanvas.width = cropImg.naturalHeight || cropImg.height;
+          rotCanvas.height = cropImg.naturalWidth || cropImg.width;
+          var rotCtx = rotCanvas.getContext('2d');
+          rotCtx.translate(rotCanvas.width, 0);
+          rotCtx.rotate(Math.PI / 2);
+          rotCtx.drawImage(cropImg, 0, 0);
+          var nextImg = new Image();
+          nextImg.onload = function () {
+            cropImg = nextImg;
+            computeDisplaySize();
+            applyCanvasSize();
+            resetCorners();
+            drawHandles();
+          };
+          nextImg.src = rotCanvas.toDataURL('image/png');
+        }
+
+        function returnFullImage() {
           cleanup();
-          callback(file);
-        };
+          if (cropImg === img) {
+            callback(file);
+            return;
+          }
+          var fullCanvas = document.createElement('canvas');
+          fullCanvas.width = cropImg.naturalWidth || cropImg.width;
+          fullCanvas.height = cropImg.naturalHeight || cropImg.height;
+          fullCanvas.getContext('2d').drawImage(cropImg, 0, 0);
+          fullCanvas.toBlob(function (blob) {
+            if (blob) callback(new File([blob], file.name.replace(/\.[^.]+$/, '.png') || 'rotated.png', {type: 'image/png'}));
+            else callback(file);
+          }, 'image/png');
+        }
+
+        document.getElementById('tfe-crop-rotate').onclick = rotateClockwise;
+        document.getElementById('tfe-crop-apply').onclick = doCrop;
+        document.getElementById('tfe-crop-skip').onclick = returnFullImage;
         document.getElementById('tfe-crop-cancel').onclick = function () {
           cleanup();
           callback(null);
