@@ -1427,6 +1427,24 @@
       + '</div>';
   };
 
+  TinyEditor.prototype._insertMediaBlock = function (innerHtml) {
+    document.execCommand('insertHTML', false,
+      this._wrapBlock(innerHtml) + '<p data-tfe-upload-caret="1"><br></p>');
+    var p = this._ed && this._ed.querySelector('p[data-tfe-upload-caret="1"]');
+    if (!p) return;
+    try {
+      p.removeAttribute('data-tfe-upload-caret');
+      this._ed.focus();
+      var range = document.createRange();
+      range.selectNodeContents(p);
+      range.collapse(true);
+      var sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      p.scrollIntoView({block:'nearest'});
+    } catch (err) {}
+  };
+
   // Delete block range when using marker (handles marker node inside the range)
   TinyEditor.prototype._deleteBlockRangeFromMarker = function (range) {
     // Remove the marker first so it doesn't get in the way
@@ -3338,27 +3356,31 @@
   TinyEditor.prototype._fileChosen = function (type, e) {
     const files = e.target.files;
     if (!files || !files.length) return;
+    const selectedFiles = Array.prototype.slice.call(files);
     const self = this;
-    if (type === 'img' && files.length > 1) {
+    if (type === 'img' && selectedFiles.length > 1) {
       // Multiple files selected — upload each one but skip the crop modal
       // (crop only makes sense for a single carefully-framed shot).
-      for (var fi = 0; fi < files.length; fi++) {
+      for (var fi = 0; fi < selectedFiles.length; fi++) {
         (function(f) {
-          self._fileChosenSingle(type, f, true);
-        })(files[fi]);
+          self._fileChosenSingle(type, f, true, e.target);
+        })(selectedFiles[fi]);
       }
       e.target.value = '';
       return;
     }
-    self._fileChosenSingle(type, files[0], false);
+    self._fileChosenSingle(type, selectedFiles[0], false, e.target);
   };
 
-  TinyEditor.prototype._fileChosenSingle = function (type, file, skipCrop) {
+  TinyEditor.prototype._fileChosenSingle = function (type, file, skipCrop, inputEl) {
     if (!file) return;
     const self = this;
     const compress = !!self._pendingCompress;
     self._pendingCompress = false;
     const maxSize = type === 'img' ? self.opts.maxImageSize : type === 'vid' ? self.opts.maxVideoSize : self.opts.maxSize;
+    var clearInput = function () {
+      try { if (inputEl) inputEl.value = ''; } catch (err) {}
+    };
 
     // Helper: show compression progress in progress bar
     var showProgress = function(label) {
@@ -3379,7 +3401,7 @@
       if (processedFile.size > maxSize) {
         alert('File too large (' + (processedFile.size/1048576).toFixed(1) + 'MB). Max: ' +
           (maxSize/1048576).toFixed(0) + 'MB. Try enabling compression.');
-        e.target.value = '';
+        clearInput();
         hideProgress();
         return;
       }
@@ -3391,7 +3413,7 @@
       var doImg = function(imgFile) {
         processFile(imgFile, function(f) {
           hideProgress();
-          if (self.opts.uploadUrl) { self._uploadFileToServer(f, type, asLink); e.target.value=''; return; }
+          if (self.opts.uploadUrl) { self._uploadFileToServer(f, type, asLink); clearInput(); return; }
           var pendingLbl = self._pendingUploadLabel || f.name || 'image';
           self._pendingUploadLabel = '';
           var reader = new FileReader();
@@ -3400,12 +3422,12 @@
             if (asLink) {
               document.execCommand('insertHTML',false,'<a href="'+ev.target.result+'" target="_blank" style="color:var(--tfe-acc,#4f8ef7)">'+_esc(pendingLbl)+'</a> ');
             } else {
-              document.execCommand('insertHTML',false, self._wrapBlock('<img src="'+ev.target.result+'" alt="'+_esc(pendingLbl)+'" style="max-width:100%;border-radius:4px;display:block">'));
+              self._insertMediaBlock('<img src="'+ev.target.result+'" alt="'+_esc(pendingLbl)+'" style="max-width:100%;border-radius:4px;display:block">');
             }
             self._updateSize();
           };
           reader.readAsDataURL(f);
-          e.target.value = '';
+          clearInput();
         });
       };
       var proceedWithFile = function(f) {
@@ -3437,7 +3459,7 @@
       var doVid = function(vidFile) {
         processFile(vidFile, function(f) {
           hideProgress();
-          if (self.opts.uploadUrl) { self._uploadFileToServer(f, type, asLinkV); e.target.value=''; return; }
+          if (self.opts.uploadUrl) { self._uploadFileToServer(f, type, asLinkV); clearInput(); return; }
           var pendingLblV = self._pendingUploadLabel || f.name || 'video';
           self._pendingUploadLabel = '';
           var reader = new FileReader();
@@ -3446,12 +3468,12 @@
             if (asLinkV) {
               document.execCommand('insertHTML',false,'<a href="'+ev.target.result+'" target="_blank" style="color:var(--tfe-acc,#4f8ef7)">'+_esc(pendingLblV)+'</a> ');
             } else {
-              document.execCommand('insertHTML',false, self._wrapBlock('<video class="tfe-vid-block" controls preload="metadata" title="'+_esc(pendingLblV)+'"><source src="'+ev.target.result+'" type="'+f.type+'">Your browser does not support video.</video>'));
+              self._insertMediaBlock('<video class="tfe-vid-block" controls preload="metadata" title="'+_esc(pendingLblV)+'"><source src="'+ev.target.result+'" type="'+f.type+'">Your browser does not support video.</video>');
             }
             self._updateSize();
           };
           reader.readAsDataURL(f);
-          e.target.value = '';
+          clearInput();
         });
       };
       if (compress && file.size > maxSize * 0.8) {
@@ -3480,7 +3502,7 @@
       // Server upload takes priority over base64
       if (self.opts.uploadUrl) {
         self._uploadFileToServer(file, type, asLink);
-        e.target.value = '';
+        clearInput();
         return;
       }
       // Base64 local fallback
@@ -3490,13 +3512,11 @@
           document.execCommand('insertHTML', false,
             '<a href="' + ev.target.result + '" target="_blank" style="color:var(--tfe-acc,#4f8ef7)">' + _esc(file.name||type) + '</a> ');
         } else if (type === 'img') {
-          document.execCommand('insertHTML', false,
-            self._wrapBlock('<img src="' + ev.target.result + '" style="max-width:100%;border-radius:4px;display:block">'));
+          self._insertMediaBlock('<img src="' + ev.target.result + '" style="max-width:100%;border-radius:4px;display:block">');
         } else {
-          document.execCommand('insertHTML', false,
-            self._wrapBlock('<video controls style="max-width:100%;border-radius:6px;display:block;background:#000" preload="metadata">'
+          self._insertMediaBlock('<video controls style="max-width:100%;border-radius:6px;display:block;background:#000" preload="metadata">'
               + '<source src="' + ev.target.result + '" type="' + file.type + '">'
-              + 'Your browser does not support video.</video>'));
+              + 'Your browser does not support video.</video>');
         }
         self._updateSize();
       };
@@ -3521,7 +3541,7 @@
       // If server upload configured, upload PDF and get a real persistent URL
       if (self.opts.uploadUrl) {
         self._uploadFileToServer(file, type, false);
-        e.target.value = '';
+        clearInput();
         return;
       }
       // Local fallback: blob URL (session-only — PDF won't persist after page reload)
@@ -3538,7 +3558,7 @@
       };
       reader.readAsDataURL(file);
     }
-    e.target.value = '';
+    clearInput();
   };
 
   // ── Insert HTML at cursor ──────────────────────────────────────────────────
